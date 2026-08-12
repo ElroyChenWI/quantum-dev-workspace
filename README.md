@@ -35,17 +35,28 @@ python demo.py
 
 The same H₂ molecule problem, the same ansatz, and the same optimizer, implemented in Qiskit / PennyLane / CUDA-Q. All converge to the exact same ground-state energy — switching framework only swaps the quantum execution engine.
 
-| 引擎 / Engine | 執行環境 / Environment | 能量 / Energy (Ha) | 說明 / Notes |
+| 引擎 / Engine | 執行環境 / Environment | 基態能量 / Energy (Ha) | 說明 / Notes |
 |------|------|------|------|
 | 精確值 / Exact | 對角化 / diagonalization | -1.857275 | 參考基準 / Reference |
 | Qiskit | 本機 CPU / Local CPU | -1.857275 | VQE 收斂（誤差 ~1e-13）|
 | PennyLane | 本機 CPU / Local CPU | -1.857275 | VQE 收斂（誤差 ~1e-13）|
 | CUDA-Q | WSL2 + NVIDIA GPU (RTX 2060) | -1.857275 | VQE 收斂（誤差 ~2e-7）|
-| **IBM Quantum** | **真實 156-qubit QPU（ibm_kingston）** | **-1.088185** | **單點 Estimator（初始參數）→ 含硬體雜訊** |
 
 ![VQE 收斂比較 / VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
 
 > 詳見 / See [quantum_vqe/README.md](quantum_vqe/README.md)
+
+### IBM Quantum 真硬體（單點驗證）
+
+在**同一組參數** `[0.1, 0.1, 0.05, 0.05]` 下，比較本機理想模擬與 IBM 真實 156-qubit 處理器：
+
+| 執行 | 能量 (Ha) | 差異 |
+|------|----------|------|
+| 本機理想模擬（同參數）| -1.047914 | — |
+| **IBM Quantum 真硬體（ibm_kingston）** | **-1.088185** | **~0.04（= 純硬體雜訊）** |
+
+> 這個 ~0.04 的差異是「**同一電路、同一參數**」下，理想模擬 vs 真硬體的**雜訊**。
+> （對照：完整 VQE 收斂後的基態能量是 -1.857275 Ha。）
 
 ### 實測：IBM Quantum 真硬體
 
