@@ -28,6 +28,8 @@ quantum_vqe/
 ├── run_cudaq.py            # CUDA-Q 版（需 WSL2 / Docker）
 ├── plot_comparison.py      # 把三框架收斂曲線畫在同一張圖比較
 ├── scale_experiment.py     # 規模實驗：加大 qubit 數，直到撞到指數牆
+├── quantum_stack_benchmark.py  # 量子平台堆疊四層 benchmark（CPU/naive GPU/CUDA-Q/IBM）
+├── wsl_test_gpu.py         # CUDA-Q GPU 煙霧測試（Bell 態）
 └── outputs/                # 收斂資料 CSV + 圖表
 ```
 
@@ -86,6 +88,42 @@ python scale_experiment.py --max_qubits 28   # 更接近牆（小心記憶體）
 ![規模實驗：指數牆](outputs/scaling_plot.png)
 
 > 這就是「為什麼要上雲端/真硬體」的實證——不是大小問題，是指數牆的問題。
+
+## 量子平台堆疊 Benchmark（四層）
+
+用**同一個 hardware-efficient ansatz（HEA）電路**，在四層後端上量測期望值計算時間，
+展示平台堆疊的差異。
+
+| 層 | 後端 | 目的 |
+|----|------|------|
+| L1 | CPU simulator（Qiskit）| 正確性基準 |
+| L2 | naive GPU（手寫 cupy）| 一般 GPU 平行化的限制 |
+| L3 | CUDA-Q / cuStateVec（nvidia）| 專用量子模擬 kernel 的優勢 |
+| L4 | IBM Quantum | 真實 QPU 執行 |
+
+執行：
+
+```powershell
+# Windows（L1）
+python quantum_vqe/quantum_stack_benchmark.py --cpu
+
+# WSL（L2/L3）
+python quantum_vqe/quantum_stack_benchmark.py --naive-gpu --cudaq
+
+# 合併比較圖（讀取所有 stack_*.csv）
+python quantum_vqe/quantum_stack_benchmark.py --plot
+```
+
+實測結果（depth=3，RTX 2060）：
+
+| N | CPU | naive GPU | CUDA-Q |
+|---|-----|-----------|--------|
+| 16 | 0.31 s | 0.17 s | 0.10 s |
+| 20 | 7.0 s | 0.34 s | 0.07 s |
+
+> 重點：naive GPU 與 CUDA-Q 算出的 ⟨Z₀⟩ 完全一致（交叉驗證正確）；
+> 差異在速度——CPU 指數成長，GPU 保持平緩，cuStateVec 在較大規模時更優。
+> 圖表：`outputs/stack_benchmark.png`
 
 ## IBM Quantum 雲端實測
 
