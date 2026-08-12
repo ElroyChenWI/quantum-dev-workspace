@@ -114,16 +114,32 @@ python quantum_vqe/quantum_stack_benchmark.py --naive-gpu --cudaq
 python quantum_vqe/quantum_stack_benchmark.py --plot
 ```
 
-實測結果（depth=3，RTX 2060）：
+實測結果（depth=1 與 depth=3，RTX 2060，warmup=1、repeats=2 取中位數）：
 
-| N | CPU | naive GPU | CUDA-Q |
-|---|-----|-----------|--------|
-| 16 | 0.31 s | 0.17 s | 0.10 s |
-| 20 | 7.0 s | 0.34 s | 0.07 s |
+| N | CPU (d1) | naive GPU (d1) | CUDA-Q (d1) | CPU (d3) | naive GPU (d3) | CUDA-Q (d3) |
+|---|----------|----------------|-------------|----------|----------------|-------------|
+| 16 | 0.10 s | 0.06 s | 0.08 s | 0.17 s | 0.18 s | 0.08 s |
+| 20 | 1.7 s | 0.10 s | 0.08 s | 4.6 s | 0.28 s | 0.09 s |
+| 24 | **26.6 s** | 1.48 s | **0.11 s** | **90.6 s** | 4.38 s | **0.15 s** |
 
-> 重點：naive GPU 與 CUDA-Q 算出的 ⟨Z₀⟩ 完全一致（交叉驗證正確）；
-> 差異在速度——CPU 指數成長，GPU 保持平緩，cuStateVec 在較大規模時更優。
-> 圖表：`outputs/stack_benchmark.png`
+> 重點 1：**naive GPU 與 CUDA-Q 算出的 ⟨Z₀⟩ 完全一致**（交叉驗證正確）。
+> 重點 2：depth=3、n=24 時，CUDA-Q 比 CPU **快約 600–900 倍**，比 naive GPU 快約 30 倍。
+> 重點 3：測量方法已專業化——`--verify-target` 印出真實 device/target、
+>         GPU 計時強制 sync（避免 async 造成時間偏低）、warmup + median、多深度掃描。
+
+測量方法與輸出：
+
+```powershell
+python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target      # L1（Windows）
+python quantum_vqe/quantum_stack_benchmark.py --naive-gpu --cudaq --verify-target   # L2/L3（WSL）
+python quantum_vqe/quantum_stack_benchmark.py --plot                     # 合併圖
+python quantum_vqe/quantum_stack_benchmark.py --all --verify-target --depths 1,3,6,10 --max_qubits 24
+```
+
+統一輸出格式（`outputs/stack_<backend>.csv`）：
+`backend, device, target, precision, qubits, depth, runtime_s, expectation`
+
+> 圖表：`outputs/stack_benchmark.png`（依 depth 分 subplot）
 
 ## IBM Quantum 雲端實測
 

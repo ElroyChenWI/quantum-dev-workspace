@@ -1,36 +1,32 @@
 """
-quantum_stack_benchmark — 量子平台堆疊四層效能 benchmark
-=========================================================
+quantum_stack_benchmark — 量子平台堆疊四層效能 benchmark（技術審查版）
+=======================================================================
 
 用**同一個 parameterized hardware-efficient ansatz（HEA）**，在四層後端上
 量測「期望值計算」的時間，展示量子平台堆疊的差異：
 
     L1 CPU simulator            → 正確性基準（Qiskit StatevectorEstimator）
-    L2 naive GPU                → 一般 GPU 平行化的限制（手寫 cupy statevector）
+    L2 naive GPU                → 一般 GPU 平行化的限制（手寫 cupy，educational baseline）
     L3 CUDA-Q / cuStateVec      → 專用量子模擬 kernel 的優勢（nvidia GPU target）
-    L4 IBM Quantum              → 真實 QPU 執行（shallow，省額度）
+    L4 IBM Quantum              → 真實 QPU 執行（語義比較：noisy hardware result，不比秒數）
 
-電路（每一層）：
-    RY(θ) 在每個 qubit → RZ(θ) 在每個 qubit → CNOT 鏈（i, i+1）
-    重複 depth 次
-量測：⟨Z₀⟩ 期望值
+測量方法（專業級）：
+    - 每個 backend 先印出 device / target（證明真的用對硬體）
+    - GPU 計時強制 synchronization（避免 kernel async 造成時間偏低）
+    - warmup 後取多次 median（避免 compile/init/allocate 影響）
+    - 掃描多個 depth 與 qubit 數
+    - 輸出統一格式：backend, device, target, precision, qubits, depth, runtime_s, expectation
 
 執行方式：
-    # L1（Windows，有 qiskit）
-    python quantum_vqe/quantum_stack_benchmark.py --cpu
-
-    # L2/L3（WSL 的 cudaq 環境，有 cupy + cudaq）
-    python quantum_vqe/quantum_stack_benchmark.py --naive-gpu --cudaq
-
-    # L4（Windows，需 .env 的 IBM token；建議小 n、淺 depth 省額度）
-    python quantum_vqe/quantum_stack_benchmark.py --ibm
-
-    # 全部（會自動偵測可用層）
-    python quantum_vqe/quantum_stack_benchmark.py --all
+    python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target
+    python quantum_vqe/quantum_stack_benchmark.py --naive-gpu --cudaq --verify-target
+    python quantum_vqe/quantum_stack_benchmark.py --all --verify-target --depths 1,3,6,10 --max_qubits 24
+    python quantum_vqe/quantum_stack_benchmark.py --ibm            # 語義比較，省額度
+    python quantum_vqe/quantum_stack_benchmark.py --plot           # 只重畫圖
 
 輸出：
-    outputs/stack_<layer>.csv   # 每層的 (n, time) 資料
-    outputs/stack_benchmark.png # 多層比較圖（log 尺規）
+    outputs/stack_results.csv    # 統一格式結果
+    outputs/stack_benchmark.png  # 依 depth 分 subplot 的比較圖（不含 IBM runtime）
 """
 
 from __future__ import annotations
@@ -45,7 +41,13 @@ import numpy as np
 OUT_DIR = Path(__file__).resolve().parent / "outputs"
 ROOT = Path(__file__).resolve().parents[1]
 
+# 統一 CSV 欄位
+CSV_HEADER = "backend,device,target,precision,qubits,depth,runtime_s,expectation"
 
+
+# ---------------------------------------------------------------------------
+# 共用電路
+# ---------------------------------------------------------------------------
 def build_hea_qiskit(n: int, depth: int, params: np.ndarray):
     """HEA：RY+RZ 全 qubit → CNOT 鏈，重複 depth 次（Qiskit 版本，固定參數）。"""
     from qiskit import QuantumCircuit
@@ -67,44 +69,69 @@ def build_hea_qiskit(n: int, depth: int, params: np.ndarray):
 def z0_observable_qiskit(n: int):
     from qiskit.quantum_info import SparsePauliOp
 
-    label = "Z" + "I" * (n - 1)
-    return SparsePauliOp.from_list([(label, 1.0)])
+    return SparsePauliOp.from_list([("Z" + "I" * (n - 1), 1.0)])
+
+
+def make_params(n: int, depth: int, seed: int = 42):
+    rng = np.random.default_rng(seed + n * 1000 + depth)
+    return rng.uniform(-0.5, 0.5, n * depth * 2)
+
+
+def timed(fn, warmup: int, repeats: int) -> float:
+    """warmup 後取中位數。回傳秒數。"""
+    for _ in range(warmup):
+        fn()
+    times = []
+    for _ in range(repeats):
+        t0 = time.perf_counter()
+        fn()
+        times.append(time.perf_counter() - t0)
+    return float(np.median(times))
 
 
 # ---------------------------------------------------------------------------
 # L1: CPU simulator（Qiskit StatevectorEstimator）
 # ---------------------------------------------------------------------------
-def benchmark_cpu(ns: list[int], depth: int, params_factory) -> list[float]:
+def backend_cpu() -> tuple[str, str, str]:
+    import qiskit
+
+    return "qiskit", "cpu", f"StatevectorEstimator qiskit-{qiskit.__version__}"
+
+
+def run_cpu(n: int, depth: int):
     from qiskit.primitives import StatevectorEstimator
 
+    params = make_params(n, depth)
+    qc = build_hea_qiskit(n, depth, params)
+    obs = z0_observable_qiskit(n)
     est = StatevectorEstimator()
-    times = []
-    for n in ns:
-        params = params_factory(n, depth)
-        qc = build_hea_qiskit(n, depth, params)
-        obs = z0_observable_qiskit(n)
-        # warm up
-        est.run([(qc, obs)]).result()
-        t0 = time.perf_counter()
-        est.run([(qc, obs)]).result()
-        times.append(time.perf_counter() - t0)
-        print(f"  [CPU ] n={n:2d} depth={depth} → {times[-1]:8.4f} s")
-    return times
+
+    def fn():
+        res = est.run([(qc, obs)]).result()
+        return float(np.atleast_1d(np.asarray(res[0].data.evs))[0])
+
+    return timed(fn, WARMUP, REPEATS), fn()
 
 
 # ---------------------------------------------------------------------------
-# L2: naive GPU simulator（手寫 cupy statevector，無優化）
+# L2: naive GPU simulator（手寫 cupy，educational baseline）
 # ---------------------------------------------------------------------------
+def backend_naive_gpu() -> tuple[str, str, str]:
+    import cupy as cp
+
+    dev = cp.cuda.runtime.getDevice()
+    props = cp.cuda.runtime.getDeviceProperties(dev)
+    return "naive_gpu", f"gpu:{dev}", props["name"].decode()
+
+
 def _naive_apply_single(sv, q, g, n):
-    """單 qubit gate（2x2），用 gather/scatter 實作——刻意不優化。"""
     import cupy as cp
 
     stride = 1 << q
     idx = cp.arange(sv.size, dtype=cp.int64)
     lo = idx[(idx & stride) == 0]
     hi = lo | stride
-    v_lo = sv[lo]
-    v_hi = sv[hi]
+    v_lo, v_hi = sv[lo], sv[hi]
     out = sv.copy()
     out[lo] = g[0, 0] * v_lo + g[0, 1] * v_hi
     out[hi] = g[1, 0] * v_lo + g[1, 1] * v_hi
@@ -112,13 +139,12 @@ def _naive_apply_single(sv, q, g, n):
 
 
 def _naive_apply_cnot(sv, c, t, n):
-    """CNOT：control=1 時對 target 做 swap（gather/scatter）。"""
     import cupy as cp
 
     stride_c, stride_t = 1 << c, 1 << t
     idx = cp.arange(sv.size, dtype=cp.int64)
-    ctrl_sel = (idx & stride_c) != 0
-    lo = idx[ctrl_sel & ((idx & stride_t) == 0)]
+    ctrl = (idx & stride_c) != 0
+    lo = idx[ctrl & ((idx & stride_t) == 0)]
     hi = lo ^ stride_t
     out = sv.copy()
     tmp = out[lo].copy()
@@ -127,100 +153,97 @@ def _naive_apply_cnot(sv, c, t, n):
     return out
 
 
-def benchmark_naive_gpu(ns: list[int], depth: int, params_factory) -> list[float]:
+def run_naive_gpu(n: int, depth: int):
     import cupy as cp
 
-    times = []
-    for n in ns:
-        dim = 1 << n
-        params = params_factory(n, depth)
-        sv = cp.zeros(dim, dtype=cp.complex128)
-        sv[0] = 1.0
-        idx = 0
-        ry = lambda t: cp.asarray(
-            np.array([[np.cos(t / 2), -np.sin(t / 2)],
-                      [np.sin(t / 2), np.cos(t / 2)]], dtype=np.complex128)
-        )
-        rz = lambda t: cp.asarray(
-            np.array([[np.exp(-1j * t / 2), 0],
-                      [0, np.exp(1j * t / 2)]], dtype=np.complex128)
-        )
+    params = make_params(n, depth)
+    dim = 1 << n
+    sv = cp.zeros(dim, dtype=cp.complex128)
+    sv[0] = 1.0
+    ry = lambda t: cp.asarray(
+        np.array([[np.cos(t / 2), -np.sin(t / 2)],
+                  [np.sin(t / 2), np.cos(t / 2)]], dtype=np.complex128)
+    )
+    rz = lambda t: cp.asarray(
+        np.array([[np.exp(-1j * t / 2), 0],
+                  [0, np.exp(1j * t / 2)]], dtype=np.complex128)
+    )
 
-        def evolve():
-            s = sv
-            k = 0
-            for _ in range(depth):
-                for q in range(n):
-                    s = _naive_apply_single(s, q, ry(params[k]), n)
-                    k += 1
-                for q in range(n):
-                    s = _naive_apply_single(s, q, rz(params[k]), n)
-                    k += 1
-                for q in range(n - 1):
-                    s = _naive_apply_cnot(s, q, q + 1, n)
-            return s
-
-        # warm up
-        evolve()
+    def fn():
+        k = 0
+        s = sv
+        for _ in range(depth):
+            for q in range(n):
+                s = _naive_apply_single(s, q, ry(params[k]), n)
+                k += 1
+            for q in range(n):
+                s = _naive_apply_single(s, q, rz(params[k]), n)
+                k += 1
+            for q in range(n - 1):
+                s = _naive_apply_cnot(s, q, q + 1, n)
+        # 強制 sync：確保 GPU kernel 全部完成才計時結束
         cp.cuda.Stream.null.synchronize()
-        t0 = time.perf_counter()
-        s = evolve()
-        cp.cuda.Stream.null.synchronize()
-        # ⟨Z₀⟩
         i0 = cp.arange(dim)
         sign = cp.where((i0 & 1) == 0, 1.0, -1.0)
-        exp_z0 = float(cp.sum(sign * cp.abs(s) ** 2))
-        times.append(time.perf_counter() - t0)
-        print(f"  [GPU ] n={n:2d} depth={depth} → {times[-1]:8.4f} s  <Z0>={exp_z0:.4f}")
-    return times
+        exp = float(cp.sum(sign * cp.abs(s) ** 2))
+        cp.cuda.Stream.null.synchronize()
+        return exp
+
+    return timed(fn, WARMUP, REPEATS), fn()
 
 
 # ---------------------------------------------------------------------------
 # L3: CUDA-Q / cuStateVec（nvidia GPU target）
 # ---------------------------------------------------------------------------
-def benchmark_cudaq(ns: list[int], depth: int, params_factory) -> list[float]:
+def backend_cudaq() -> tuple[str, str, str]:
     import cudaq
 
     cudaq.set_target("nvidia")
+    target = cudaq.get_target().name
+    return "cudaq", "gpu", f"target={target} ({cudaq.get_target().num_qpus()} QPU)"
+
+
+def run_cudaq(n: int, depth: int):
+    import cudaq
     from cudaq import spin
 
-    times = []
-    for n in ns:
-        params = params_factory(n, depth)
+    cudaq.set_target("nvidia")
+    params = make_params(n, depth)
 
-        @cudaq.kernel
-        def hea(p: list[float]):
-            q = cudaq.qvector(n)
-            k = 0
-            for _ in range(depth):
-                for i in range(n):
-                    ry(p[k], q[i])
-                    k += 1
-                for i in range(n):
-                    rz(p[k], q[i])
-                    k += 1
-                for i in range(n - 1):
-                    x.ctrl(q[i], q[i + 1])
+    @cudaq.kernel
+    def hea(p: list[float]):
+        q = cudaq.qvector(n)
+        k = 0
+        for _ in range(depth):
+            for i in range(n):
+                ry(p[k], q[i])
+                k += 1
+            for i in range(n):
+                rz(p[k], q[i])
+                k += 1
+            for i in range(n - 1):
+                x.ctrl(q[i], q[i + 1])
 
-        # n-qubit observable ⟨Z₀⟩
-        H = spin.z(0)
-        for i in range(1, n):
-            H = H * spin.i(i)
-        exp_val = cudaq.observe(hea, H, params).expectation()  # warm up
-        t0 = time.perf_counter()
-        exp_val = cudaq.observe(hea, H, params).expectation()
-        times.append(time.perf_counter() - t0)
-        print(f"  [CUDAQ] n={n:2d} depth={depth} → {times[-1]:8.4f} s  <Z0>={exp_val:.4f}")
-    return times
+    H = spin.z(0)
+    for i in range(1, n):
+        H = H * spin.i(i)
+
+    def fn():
+        # .expectation() 會 materialize 結果 = 強制同步
+        return cudaq.observe(hea, H, params).expectation()
+
+    return timed(fn, WARMUP, REPEATS), float(fn())
 
 
 # ---------------------------------------------------------------------------
-# L4: IBM Quantum（真實 QPU，shallow，省額度）
+# L4: IBM Quantum（真實 QPU — 語義比較，不比秒數）
 # ---------------------------------------------------------------------------
-def benchmark_ibm(ns: list[int], depth: int, params_factory) -> list[float]:
-    import sys as _sys
+def backend_ibm() -> tuple[str, str, str]:
+    return "ibm", "qpu", "QiskitRuntimeService (ibm_quantum_platform)"
 
-    _sys.path.insert(0, str(ROOT))
+
+def run_ibm(n: int, depth: int):
+    sys.path.insert(0, str(ROOT))
     from run_ibm_cloud import load_token
     from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
     from qiskit_ibm_runtime import EstimatorV2 as Estimator, QiskitRuntimeService
@@ -229,44 +252,33 @@ def benchmark_ibm(ns: list[int], depth: int, params_factory) -> list[float]:
     service = QiskitRuntimeService(channel="ibm_quantum_platform", token=token)
     backends = [b for b in service.backends() if service.backend(b.name).status().operational]
     if not backends:
-        raise RuntimeError("沒有可用的 IBM backend")
+        raise RuntimeError("無可用 IBM backend")
     backend = min(backends, key=lambda b: service.backend(b.name).status().pending_jobs)
-    print(f"  使用 IBM backend: {backend.name}")
 
-    times = []
-    for n in ns:
-        params = params_factory(n, depth)
-        qc = build_hea_qiskit(n, depth, params)
-        obs = z0_observable_qiskit(n)
-        pm = generate_preset_pass_manager(backend=backend, optimization_level=1)
-        isa_qc = pm.run(qc)
-        isa_obs = obs.apply_layout(isa_qc.layout)
-        estimator = Estimator(backend)
-        job = estimator.run([(isa_qc, isa_obs)])
-        print(f"  [IBM ] n={n:2d} depth={depth} → job {job.job_id()}（排隊中）")
-        t0 = time.perf_counter()
-        result = job.result()
-        times.append(time.perf_counter() - t0)
-        val = float(result[0].data.evs[0])
-        print(f"          → {times[-1]:8.4f} s（含排隊） <Z0>={val:.4f}")
-    return times
+    params = make_params(n, depth)
+    qc = build_hea_qiskit(n, depth, params)
+    obs = z0_observable_qiskit(n)
+    pm = generate_preset_pass_manager(backend=backend, optimization_level=1)
+    isa_qc = pm.run(qc)
+    isa_obs = obs.apply_layout(isa_qc.layout)
+    estimator = Estimator(backend)
+    job = estimator.run([(isa_qc, isa_obs)])
+    result = job.result()  # 阻塞直到完成（含 queue time）
+    ev = float(np.atleast_1d(np.asarray(result[0].data.evs))[0])
+    return float(np.nan), ev  # runtime 標 NaN：不比秒數
 
 
 # ---------------------------------------------------------------------------
 # 主程式
 # ---------------------------------------------------------------------------
-def make_params_factory(rng_seed: int = 42):
-    def factory(n: int, depth: int):
-        rng = np.random.default_rng(rng_seed + n)
-        return rng.uniform(-0.5, 0.5, n * depth * 2)
-
-    return factory
+WARMUP = 1
+REPEATS = 3
 
 
 def available_backends() -> dict:
     bk = {"cpu": False, "naive_gpu": False, "cudaq": False, "ibm": False}
     try:
-        import qiskit
+        import qiskit  # noqa: F401
 
         bk["cpu"] = True
     except ImportError:
@@ -289,25 +301,31 @@ def available_backends() -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="量子平台堆疊四層 benchmark")
+    global WARMUP, REPEATS
+
+    parser = argparse.ArgumentParser(description="量子平台堆疊四層 benchmark（技術審查版）")
     parser.add_argument("--min_qubits", type=int, default=4)
-    parser.add_argument("--max_qubits", type=int, default=20)
-    parser.add_argument("--depth", type=int, default=3)
-    parser.add_argument("--cpu", action="store_true", help="跑 L1 CPU")
-    parser.add_argument("--naive-gpu", action="store_true", help="跑 L2 naive GPU")
-    parser.add_argument("--cudaq", action="store_true", help="跑 L3 CUDA-Q")
-    parser.add_argument("--ibm", action="store_true", help="跑 L4 IBM（省額度）")
-    parser.add_argument("--all", action="store_true", help="跑所有可用層")
-    parser.add_argument("--plot", action="store_true", help="只重畫比較圖（讀取既有 CSV）")
+    parser.add_argument("--max_qubits", type=int, default=24)
+    parser.add_argument("--depths", type=str, default="3", help="逗號分隔的 depth 清單，如 1,3,6,10")
+    parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument("--warmup", type=int, default=1)
+    parser.add_argument("--verify-target", action="store_true", help="印出每個 backend 的 device/target 證明")
+    parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--naive-gpu", action="store_true")
+    parser.add_argument("--cudaq", action="store_true")
+    parser.add_argument("--ibm", action="store_true")
+    parser.add_argument("--all", action="store_true")
+    parser.add_argument("--plot", action="store_true", help="只重畫比較圖")
     args = parser.parse_args()
 
-    ns = list(range(args.min_qubits, args.max_qubits + 1, 4))
+    WARMUP, REPEATS = args.warmup, args.repeats
+    depths = [int(d) for d in args.depths.split(",")]
 
     if args.plot:
-        _plot(ns)
+        _plot(depths)
         return
 
-    params_factory = make_params_factory()
+    ns = list(range(args.min_qubits, args.max_qubits + 1, 4))
     bk = available_backends()
 
     if args.all:
@@ -316,50 +334,65 @@ def main():
         args.cudaq = bk["cudaq"]
         args.ibm = bk["ibm"]
 
-    print("=" * 64)
-    print("quantum_stack_benchmark — 四層後端期望值計算時間")
-    print("=" * 64)
-    print(f"qubits: {ns}, depth: {args.depth}")
-    print(f"偵測到可用層: {[k for k, v in bk.items() if v]}")
+    print("=" * 68)
+    print("quantum_stack_benchmark（技術審查版）— 四層後端期望值計算")
+    print("=" * 68)
+    print(f"qubits: {ns}, depths: {depths}, warmup={WARMUP}, repeats={REPEATS}")
+    print(f"可用層: {[k for k, v in bk.items() if v]}")
 
-    results = {}
+    layers = {
+        "cpu": (backend_cpu, run_cpu),
+        "naive_gpu": (backend_naive_gpu, run_naive_gpu),
+        "cudaq": (backend_cudaq, run_cudaq),
+        "ibm": (backend_ibm, run_ibm),
+    }
+    enabled = [k for k, flag in
+               [("cpu", args.cpu), ("naive_gpu", args.naive_gpu),
+                ("cudaq", args.cudaq), ("ibm", args.ibm)] if flag]
 
-    if args.cpu:
-        print("\n--- L1: CPU simulator (Qiskit) ---")
-        results["cpu"] = benchmark_cpu(ns, args.depth, params_factory)
-    if args.naive_gpu:
-        print("\n--- L2: naive GPU (cupy) ---")
-        results["naive_gpu"] = benchmark_naive_gpu(ns, args.depth, params_factory)
-    if args.cudaq:
-        print("\n--- L3: CUDA-Q / cuStateVec (nvidia) ---")
-        results["cudaq"] = benchmark_cudaq(ns, args.depth, params_factory)
-    if args.ibm:
-        print("\n--- L4: IBM Quantum QPU ---")
-        ibm_ns = [args.min_qubits]  # 省額度：只跑最小 n
-        results["ibm"] = benchmark_ibm(ibm_ns, min(args.depth, 1), params_factory)
+    rows = []
+    for key in enabled:
+        info_fn, run_fn = layers[key]
+        device, target, precision = "", "", "complex128"
+        try:
+            name, device, target = info_fn()
+        except Exception as e:
+            print(f"[{key}] 初始化失敗: {e}")
+            continue
+        if args.verify_target or args.all:
+            print(f"\n[{key}] device={device}  target={target}")
+        for depth in depths:
+            for n in ns:
+                if key == "ibm" and n != args.min_qubits:
+                    continue  # 省額度：IBM 只跑最小 n
+                print(f"  [{key:9s}] n={n:2d} depth={depth:2d} ...", end=" ", flush=True)
+                runtime, exp = run_fn(n, depth)
+                rows.append((key, device, target, precision, n, depth, runtime, exp))
+                print(f"runtime={runtime if not np.isnan(runtime) else 'n/a':>8}  <Z0>={exp:.4f}")
 
-    if not results:
-        print("沒有執行任何層。用 --all 或指定 --cpu/--naive-gpu/--cudaq/--ibm。")
+    if not rows:
+        print("沒有執行任何層。")
         return
 
-    # 儲存 CSV
     OUT_DIR.mkdir(exist_ok=True)
-    for layer, times in results.items():
+    # 每個 backend 存自己的 CSV（跨環境執行時不會互相覆寫）
+    for key in enabled:
+        key_rows = [r for r in rows if r[0] == key]
         np.savetxt(
-            OUT_DIR / f"stack_{layer}.csv",
-            np.column_stack([ns[: len(times)], times]),
-            header="qubits,time_s",
+            OUT_DIR / f"stack_{key}.csv",
+            np.array(key_rows, dtype=object),
+            header=CSV_HEADER,
+            delimiter=",",
             comments="",
+            fmt="%s",
         )
+        print(f"[data] saved: stack_{key}.csv ({len(key_rows)} rows)")
+    _plot(depths)
 
-    # 畫圖（合併所有已存在層的 CSV，跨環境）
-    _plot(ns)
 
+def _plot(depths: list[int]):
+    import csv as _csv
 
-def _plot(ns: list[int]):
-    import matplotlib
-
-    # 跨 Windows / WSL 通用：用 ASCII 標籤避免缺中文字型
     import matplotlib.pyplot as plt
     from matplotlib.ticker import FuncFormatter
 
@@ -370,31 +403,50 @@ def _plot(ns: list[int]):
         "ibm": ("IBM QPU", "#9467bd", "d-"),
     }
 
-    found = [k for k in layers if (OUT_DIR / f"stack_{k}.csv").exists()]
-    if not found:
-        print("沒有可畫的資料（無 stack_*.csv）")
+    # 合併所有已存在層的 CSV
+    data = []
+    for key in layers:
+        csv_path = OUT_DIR / f"stack_{key}.csv"
+        if not csv_path.exists():
+            continue
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            data += list(_csv.DictReader(f))
+    if not data:
+        print("無 stack_*.csv，先跑 benchmark")
         return
 
-    plt.figure(figsize=(9, 5.5))
-    for key in found:
-        label, color, marker = layers[key]
-        data = np.atleast_2d(np.loadtxt(OUT_DIR / f"stack_{key}.csv", skiprows=1))
-        if data.ndim == 1:
-            data = data.reshape(1, -1)
-        plt.plot(data[:, 0], data[:, 1], marker, color=color, label=label)
-
-    plt.yscale("log")
-    plt.gca().yaxis.set_major_formatter(FuncFormatter(lambda v, p: f"{v:.1e}"))
-    plt.xlabel("Qubits N")
-    plt.ylabel("Expectation time (s, log)")
-    plt.title("Quantum Stack Benchmark - same HEA circuit, 4 backends")
-    plt.legend()
-    plt.grid(True, which="both", alpha=0.3)
+    ncol = len(depths)
+    fig, axes = plt.subplots(1, ncol, figsize=(5 * ncol, 4.5), squeeze=False)
+    for j, depth in enumerate(depths):
+        ax = axes[0][j]
+        plotted = False
+        for key, (label, color, marker) in layers.items():
+            pts = [(float(r["qubits"]), float(r["runtime_s"]))
+                   for r in data if r["backend"] == key and int(r["depth"]) == depth]
+            if not pts:
+                continue
+            pts = sorted(pts)
+            ax.plot([p[0] for p in pts], [p[1] for p in pts], marker, color=color, label=label)
+            plotted = True
+        ax.set_yscale("log")
+        ax.yaxis.set_major_formatter(FuncFormatter(lambda v, p: f"{v:.0e}"))
+        ax.set_xlabel("Qubits N")
+        ax.set_title(f"depth={depth}")
+        if j == 0:
+            ax.set_ylabel("Expectation time (s, log)")
+        if plotted:
+            ax.legend(fontsize=8)
+    fig.suptitle("Quantum Stack Benchmark - same HEA circuit (IBM shown as semantics only)")
     plt.tight_layout()
     png = OUT_DIR / "stack_benchmark.png"
     plt.savefig(png, dpi=130)
     plt.close()
-    print(f"\n[chart] saved: {png}")
+    print(f"[chart] saved: {png}")
+
+
+if __name__ == "__main__":
+    main()
+
 
 
 if __name__ == "__main__":
