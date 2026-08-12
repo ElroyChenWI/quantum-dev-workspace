@@ -141,10 +141,9 @@ def main():
     print(f"誤差（vs 本機）         : {abs(cloud - local):.2e} Ha")
 
     print(f"\n結論：本機與 IBM 真實量子處理器的結果接近但不完全相同。")
-    print(f"差異 {abs(cloud - local):.3f} Ha 正是『硬體雜訊』的影響：")
-    print("模擬器是無雜訊的理想值，真硬體必然有誤差——")
-    print("這正是需要研究真實量子硬體的原因。")
-    print("同一段量子程式可以從本機直接搬到雲端/真硬體執行（跨過指數牆）。")
+    print(f"差異 {abs(cloud - local):.3f} Ha 主要反映真實硬體效應：")
+    print("本機 statevector 是無雜訊理想參考；真硬體會受到 noise、shots、layout 與未做 error mitigation 的影響。")
+    print("這正是需要把同一套量子程式從本機模擬搬到雲端真硬體驗證的原因。")
 
 
 if __name__ == "__main__":

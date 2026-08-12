@@ -50,19 +50,25 @@ python plot_comparison.py   # 畫比較圖
 | 精確值 | -1.857275 | — |
 | Qiskit | -1.857275 | ~1e-13 |
 | PennyLane | -1.857275 | ~1e-13 |
-| CUDA-Q | -1.857275 | 待執行 |
+| CUDA-Q | -1.857275 | ~2e-7（GPU）|
 
-## CUDA-Q 版（需 WSL2 / Docker）
+## CUDA-Q 版（WSL2 + NVIDIA GPU）
 
-CUDA-Q 不支援 Windows 原生執行。請先照根目錄 `docs/CUDA-Q_SETUP.md` 安裝，
-再到 WSL2 / Docker 內執行：
+CUDA-Q 不支援 Windows 原生執行，需在 WSL2 / Docker 內執行。
+本專案已在 **WSL2 + NVIDIA RTX 2060** 上驗證（`nvidia` GPU target），收斂到 -1.857275 Ha。
+
+執行（WSL 內，需有 python 3.12 的 `cudaq` 環境）：
 
 ```bash
-python quantum_vqe/run_cudaq.py
+cd /mnt/d/Elroy/Quant_DEV/quantum_vqe
+# 使用 cudaq 環境的 python（例如 conda 環境 cudaq）
+python run_cudaq.py
 ```
 
 CUDA-Q 的好處是可吃 NVIDIA GPU 加速；本範例的程式結構與 Qiskit/PennyLane 完全相同，
 只差在 `cudaq.observe` 這個「執行引擎」呼叫。
+
+> 若在 Windows 上執行，會提示 CUDA-Q 未安裝（需 WSL2/Docker），並指引到 `docs/CUDA-Q_SETUP.md`。
 
 ## 規模實驗：找到指數牆
 

@@ -40,7 +40,7 @@ The same H₂ molecule problem, the same ansatz, and the same optimizer, impleme
 | 精確值（對角化）/ Exact (diagonalization) | -1.857275 | — | 參考基準 / Reference |
 | Qiskit | -1.857275 | ~1e-13 | Windows 本機可跑 / Runs on Windows |
 | PennyLane | -1.857275 | ~1e-13 | Windows 本機可跑 / Runs on Windows |
-| CUDA-Q | 待執行 / TBD | — | 需 WSL2 / Docker，可吃 GPU / WSL2 or Docker; GPU-capable |
+| CUDA-Q | -1.857275 | ~2e-7 | WSL2 + NVIDIA GPU（RTX 2060）/ WSL2 + NVIDIA GPU |
 
 ![VQE 收斂比較 / VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
 
@@ -48,9 +48,9 @@ The same H₂ molecule problem, the same ansatz, and the same optimizer, impleme
 
 ### 實測：IBM Quantum 真硬體
 
-H2 已在 **IBM Quantum 真實 156-qubit 處理器（ibm_kingston）** 上執行。
-本機理想值 **-1.047914 Ha**，真硬體 **-1.088185 Ha**，
-差異 **~0.04 Ha** 即為量子硬體雜訊的具體呈現（模擬器是無雜訊的理想值）。
+H2 的同一個 ansatz / observable 已在 **IBM Quantum 真實 156-qubit 處理器（ibm_kingston）** 上執行 Estimator job。
+同一組參數在本機理想 statevector 的 expectation value 為 **-1.047914 Ha**，真硬體回傳 **-1.088185 Ha**。
+差異 **~0.04 Ha** 主要呈現真實量子硬體的 noise、shot statistics、transpilation/layout 與未做 error mitigation 的實機效應。
 詳見 / See [docs/IBM_CLOUD_AUDIT.md](docs/IBM_CLOUD_AUDIT.md)。
 
 ## 使用的框架 / Frameworks

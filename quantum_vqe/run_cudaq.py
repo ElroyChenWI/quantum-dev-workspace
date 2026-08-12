@@ -78,7 +78,13 @@ def main():
     print("CUDA-Q VQE — H2 基態能量")
     print("=" * 60)
     print(f"CUDA-Q 版本: {cudaq.__version__}")
-    print(f"執行目標   : {cudaq.get_target()}")
+
+    # 嘗試使用 GPU（nvidia target），不可用時退回預設 CPU
+    try:
+        cudaq.set_target("nvidia")
+        print(f"執行目標   : {cudaq.get_target().name}（GPU 加速）")
+    except Exception:
+        print(f"執行目標   : {cudaq.get_target().name}（GPU 不可用，用 CPU）")
 
     hamiltonian = build_hamiltonian()
     exact = exact_ground_state_energy()
