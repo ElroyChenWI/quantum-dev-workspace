@@ -8,8 +8,8 @@ A quantum development environment integrating **Qiskit / PennyLane / Cirq / CUDA
 
 ## 核心展示 / Highlights
 
-- 環境完整度：四框架 + 本機模擬 → IBM Quantum 雲端 → CUDA-Q GPU
-  Full environment: four frameworks + local simulation → IBM Quantum cloud → CUDA-Q GPU
+- 環境完整度：四框架 + 本機模擬，可擴展至 IBM Quantum 雲端與 CUDA-Q GPU
+  Full environment: four frameworks + local simulation, extensible to IBM Quantum cloud and CUDA-Q GPU
 - 演算法深度：VQE 找 H₂ 基態能量，收斂到精確值，誤差 < 1e-13 Ha
   Real algorithm: VQE finds the H₂ ground state, converging to the exact value within < 1e-13 Ha
 - 工程品質：共用問題定義、多框架對照、結果可驗證
@@ -50,7 +50,7 @@ The same H₂ molecule problem, the same ansatz, and the same optimizer, impleme
 
 | 框架 / Framework | 用途 / Purpose | 後端 / Backend |
 |------|------|------|
-| [Qiskit](https://qiskit.org/) | 量子電路、量子演算法 / circuits, quantum algorithms | 本機 Aer → IBM Quantum 雲端 / local Aer → IBM Quantum cloud |
+| [Qiskit](https://qiskit.org/) | 量子電路、量子演算法 / circuits, quantum algorithms | 本機 Aer 模擬器（可擴展至 IBM Quantum 雲端）/ local Aer simulator (IBM Quantum cloud-ready) |
 | [PennyLane](https://pennylane.ai/) | 可微分量子程式、量子機器學習 / differentiable programs, QML | 多種模擬器 + 硬體 / simulators + hardware |
 | [Cirq](https://quantumai.google/cirq) | 量子電路研究 / circuit research | 本機模擬器 / local simulator |
 | [CUDA-Q](https://developer.nvidia.com/cuda-q) | GPU 高效能模擬、混合量子-經典 / GPU simulation, hybrid QC | NVIDIA GPU（需 WSL2 / Linux / Docker）|
