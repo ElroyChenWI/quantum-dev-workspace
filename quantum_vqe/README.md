@@ -51,6 +51,7 @@ python plot_comparison.py   # 畫比較圖
 | Qiskit | -1.857275 | ~1e-13 |
 | PennyLane | -1.857275 | ~1e-13 |
 | CUDA-Q | -1.857275 | ~2e-7（GPU）|
+| IBM Quantum QPU | -1.088185 | 單點 Estimator（含硬體雜訊）|
 
 ## CUDA-Q 版（WSL2 + NVIDIA GPU）
 

@@ -35,12 +35,13 @@ python demo.py
 
 The same H₂ molecule problem, the same ansatz, and the same optimizer, implemented in Qiskit / PennyLane / CUDA-Q. All converge to the exact same ground-state energy — switching framework only swaps the quantum execution engine.
 
-| 框架 / Framework | 基態能量 / Energy (Ha) | 誤差 / Error | 說明 / Notes |
-|------|--------------|------|------|
-| 精確值（對角化）/ Exact (diagonalization) | -1.857275 | — | 參考基準 / Reference |
-| Qiskit | -1.857275 | ~1e-13 | Windows 本機可跑 / Runs on Windows |
-| PennyLane | -1.857275 | ~1e-13 | Windows 本機可跑 / Runs on Windows |
-| CUDA-Q | -1.857275 | ~2e-7 | WSL2 + NVIDIA GPU（RTX 2060）/ WSL2 + NVIDIA GPU |
+| 引擎 / Engine | 執行環境 / Environment | 能量 / Energy (Ha) | 說明 / Notes |
+|------|------|------|------|
+| 精確值 / Exact | 對角化 / diagonalization | -1.857275 | 參考基準 / Reference |
+| Qiskit | 本機 CPU / Local CPU | -1.857275 | VQE 收斂（誤差 ~1e-13）|
+| PennyLane | 本機 CPU / Local CPU | -1.857275 | VQE 收斂（誤差 ~1e-13）|
+| CUDA-Q | WSL2 + NVIDIA GPU (RTX 2060) | -1.857275 | VQE 收斂（誤差 ~2e-7）|
+| **IBM Quantum** | **真實 156-qubit QPU（ibm_kingston）** | **-1.088185** | **單點 Estimator（初始參數）→ 含硬體雜訊** |
 
 ![VQE 收斂比較 / VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
 
