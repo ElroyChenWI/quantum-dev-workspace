@@ -81,6 +81,26 @@ python scale_experiment.py --max_qubits 28   # 更接近牆（小心記憶體）
 
 > 這就是「為什麼要上雲端/真硬體」的實證——不是大小問題，是指數牆的問題。
 
+## IBM Quantum 雲端實測
+
+H2 已實際提交到 **IBM Quantum 真實 156-qubit 處理器**（ibm_kingston）執行：
+
+| 來源 | 能量 (Ha) |
+|------|-----------|
+| 本機模擬（理想）| -1.047914 |
+| IBM 真硬體 | -1.088185 |
+| 差異（= 硬體雜訊）| ~0.04 |
+
+執行方式（需先在 `.env` 設定 `QISKIT_IBM_TOKEN`）：
+
+```powershell
+python quantum_vqe/run_ibm_cloud.py --list          # 列出可用 backend
+python quantum_vqe/run_ibm_cloud.py --backend ibm_kingston   # 跑 H2 能量
+```
+
+> 真硬體結果與本機理想值的差異，正是量子硬體雜訊的具體呈現。
+> 詳見 / See [docs/IBM_CLOUD_AUDIT.md](../docs/IBM_CLOUD_AUDIT.md)。
+
 ## 三框架的對照（跨框架的關鍵）
 
 | 層面 | Qiskit | PennyLane | CUDA-Q |

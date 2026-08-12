@@ -46,11 +46,18 @@ The same H₂ molecule problem, the same ansatz, and the same optimizer, impleme
 
 > 詳見 / See [quantum_vqe/README.md](quantum_vqe/README.md)
 
+### 實測：IBM Quantum 真硬體
+
+H2 已在 **IBM Quantum 真實 156-qubit 處理器（ibm_kingston）** 上執行。
+本機理想值 **-1.047914 Ha**，真硬體 **-1.088185 Ha**，
+差異 **~0.04 Ha** 即為量子硬體雜訊的具體呈現（模擬器是無雜訊的理想值）。
+詳見 / See [docs/IBM_CLOUD_AUDIT.md](docs/IBM_CLOUD_AUDIT.md)。
+
 ## 使用的框架 / Frameworks
 
 | 框架 / Framework | 用途 / Purpose | 後端 / Backend |
 |------|------|------|
-| [Qiskit](https://qiskit.org/) | 量子電路、量子演算法 / circuits, quantum algorithms | 本機 Aer 模擬器（可擴展至 IBM Quantum 雲端）/ local Aer simulator (IBM Quantum cloud-ready) |
+| [Qiskit](https://qiskit.org/) | 量子電路、量子演算法 / circuits, quantum algorithms | 本機模擬 + IBM Quantum 雲端實測（156-qubit）/ local simulation + IBM Quantum cloud verified (156-qubit) |
 | [PennyLane](https://pennylane.ai/) | 可微分量子程式、量子機器學習 / differentiable programs, QML | 多種模擬器 + 硬體 / simulators + hardware |
 | [Cirq](https://quantumai.google/cirq) | 量子電路研究 / circuit research | 本機模擬器 / local simulator |
 | [CUDA-Q](https://developer.nvidia.com/cuda-q) | GPU 高效能模擬、混合量子-經典 / GPU simulation, hybrid QC | NVIDIA GPU（需 WSL2 / Linux / Docker）|
