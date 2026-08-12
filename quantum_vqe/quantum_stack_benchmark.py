@@ -69,7 +69,9 @@ def build_hea_qiskit(n: int, depth: int, params: np.ndarray):
 def z0_observable_qiskit(n: int):
     from qiskit.quantum_info import SparsePauliOp
 
-    return SparsePauliOp.from_list([("Z" + "I" * (n - 1), 1.0)])
+    # Qiskit Pauli 字串最右邊是 qubit 0；naive GPU 用 (i & 1)、CUDA-Q 用 spin.z(0) 都是量 qubit 0。
+    # 必須用 "I"*(n-1)+"Z"，否則會量到最高位 qubit，三層就不是同一個 <Z0>。
+    return SparsePauliOp.from_list([("I" * (n - 1) + "Z", 1.0)])
 
 
 def make_params(n: int, depth: int, seed: int = 42):
@@ -442,11 +444,6 @@ def _plot(depths: list[int]):
     plt.savefig(png, dpi=130)
     plt.close()
     print(f"[chart] saved: {png}")
-
-
-if __name__ == "__main__":
-    main()
-
 
 
 if __name__ == "__main__":

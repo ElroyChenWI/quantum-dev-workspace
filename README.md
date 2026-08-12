@@ -99,8 +99,8 @@ The same HEA circuit on a CPU simulator, adding qubits to measure time & memory 
 ![規模實驗 / Scale experiment](quantum_vqe/outputs/scaling_plot.png)
 
 > 這不是「大小問題」，是**指數牆**——模擬時間與記憶體隨 qubit 數指數成長，
-> 唯一出路是 GPU 平行化與真實硬體。→ 這就是接下來 Benchmark 的動機。
-> This is not a “size problem” — it is the **exponential wall**. Simulation time & memory grow exponentially with qubit count; the only way out is GPU parallelism and real hardware. → This motivates the benchmark below.
+> 實務上的擴展路徑包括 GPU 加速、專用模擬器、近似方法，以及真實 QPU 執行。
+> This is not a “size problem” — it is the **exponential wall**. Simulation time & memory grow exponentially with qubit count; practical scaling paths include GPU acceleration, specialized simulators, approximation methods, and real QPU execution.
 
 ## 平台堆疊 Benchmark（四層）/ 4-Layer Stack Benchmark
 
@@ -121,7 +121,7 @@ The **same HEA circuit** (RY+RZ all qubits → CNOT chain → measure ⟨Z₀⟩
 - **warmup + median**：`--warmup 1 --repeats 2`，重複取中位數，排除冷啟動與抖動
 - **多深度掃描**：`--depths 1,3,6,10`，同時看電路深度對各平台成本的影響
 - **統一 CSV**：`backend, device, target, precision, qubits, depth, runtime_s, expectation`
-- **交叉驗證**：naive GPU 與 CUDA-Q 的 ⟨Z₀⟩ 完全一致 → 兩個 GPU 實作互相驗證正確
+- **交叉驗證**：CPU / naive GPU / CUDA-Q 三層的 ⟨Z₀⟩ 完全一致（Qiskit Pauli 已處理 endianness，三者量同一個 qubit 0）→ 三個實作互相驗證正確
 
 **實測結果（RTX 2060，n=24，warmup=1 + repeats=2 中位數）/** Measured results:
 
