@@ -1,0 +1,13 @@
+# CUDA-Q — 需在 WSL2 / Linux / Docker 環境安裝
+# 請參考 docs/CUDA-Q_SETUP.md 的完整步驟
+#
+# 安裝方式（Linux/WSL2 建議用 conda）：
+#   conda install -c nvidia cuda-quantum
+# 或
+#   pip install cuda-quantum
+#
+# 本檔案僅記錄相依關係，不應在 Windows 原生環境執行
+
+# cuda-quantum          # 由 pip/conda 安裝
+# qiskit                # CUDA-Q 可透過 qir 介接 Qiskit
+# pennylane-cudaq       # PennyLane 的 CUDA-Q 外掛

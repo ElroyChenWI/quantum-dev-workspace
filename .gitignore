@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# 虛擬環境
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
+
+# IDE
+.vscode/
+.idea/
+
+# 環境變數與金鑰（絕對不要提交）
+.env
+*.token
+*api_key*
+
+# 資料與輸出（demo 結果圖表會提交，讓看的人直接看到結果）
+outputs/**
+!outputs/**/*.png
+!outputs/**/*.csv
+*.h5
+*.qasm.bak
+
+# OS
+Thumbs.db
+.DS_Store

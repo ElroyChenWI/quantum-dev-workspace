@@ -1,0 +1,27 @@
+# Quant_DEV — Windows 本機依賴
+# Python 3.11
+
+# --- 基礎科學計算 ---
+numpy>=1.26
+scipy>=1.11
+matplotlib>=3.8
+pandas>=2.1
+
+# --- Jupyter ---
+jupyterlab>=4.0
+ipykernel>=6.28
+
+# --- Qiskit（量子計算） ---
+qiskit>=1.1
+qiskit-aer>=0.14
+qiskit-machine-learning>=0.7
+qiskit-ibm-runtime>=0.24   # 之後連 IBM Quantum 雲端用
+
+# --- PennyLane（量子機器學習） ---
+pennylane>=0.36
+
+# --- Cirq（Google 量子框架） ---
+cirq>=1.4
+
+# --- 其他 ---
+tqdm>=4.66
