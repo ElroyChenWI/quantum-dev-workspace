@@ -27,6 +27,7 @@ quantum_vqe/
 ├── run_pennylane.py        # PennyLane 版（default.qubit）— Windows 可跑
 ├── run_cudaq.py            # CUDA-Q 版（需 WSL2 / Docker）
 ├── plot_comparison.py      # 把三框架收斂曲線畫在同一張圖比較
+├── scale_experiment.py     # 規模實驗：加大 qubit 數，直到撞到指數牆
 └── outputs/                # 收斂資料 CSV + 圖表
 ```
 
@@ -62,6 +63,23 @@ python quantum_vqe/run_cudaq.py
 
 CUDA-Q 的好處是可吃 NVIDIA GPU 加速；本範例的程式結構與 Qiskit/PennyLane 完全相同，
 只差在 `cudaq.observe` 這個「執行引擎」呼叫。
+
+## 規模實驗：找到指數牆
+
+從 H2（2 qubit）出發，改用可擴展的 1D Heisenberg 鏈哈密頓量，把 qubit 數一路加大，
+量測單次能量評估的時間與狀態向量記憶體，親眼看到經典模擬的指數成長。
+
+```powershell
+python scale_experiment.py             # 預設跑到 24 qubit
+python scale_experiment.py --max_qubits 28   # 更接近牆（小心記憶體）
+```
+
+預期觀察：每加 2 個 qubit，單次評估時間約 ×5，log 尺規下是一條直線；
+狀態向量記憶體以 2^N 成長（16 bytes × 2^N），本機的「牆」約在 N≈28–30。
+
+![規模實驗：指數牆](outputs/scaling_plot.png)
+
+> 這就是「為什麼要上雲端/真硬體」的實證——不是大小問題，是指數牆的問題。
 
 ## 三框架的對照（跨框架的關鍵）
 
