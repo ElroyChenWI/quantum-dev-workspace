@@ -122,9 +122,11 @@ python quantum_vqe/quantum_stack_benchmark.py --plot
 | 20 | 2.19 s | 0.14 s | 0.13 s | 4.10 s | 0.33 s | 0.09 s |
 | 24 | **35.3 s** | 1.47 s | **0.13 s** | **72.8 s** | 4.36 s | **0.19 s** |
 
+![平台堆疊速度總結](outputs/stack_summary.png)
+
 > 重點 1：**CPU / naive GPU / CUDA-Q 三層算出的 ⟨Z₀⟩ 完全一致**（同一 observable，三層交叉驗證正確；
 >         Qiskit Pauli 已處理 endianness，量到同一個 qubit 0）。
-> 重點 2：depth=3、n=24 時，CUDA-Q 比 CPU **快約 390 倍**，比 naive GPU 快約 23 倍。
+> 重點 2：depth=3、n=24 時，CUDA-Q 比 CPU **快約 389 倍**，比 naive GPU 快約 23 倍。
 > 重點 3：測量方法已專業化——`--verify-target` 印出真實 device/target、
 >         GPU 計時強制 sync（避免 async 造成時間偏低）、warmup + median、多深度掃描。
 > 註：CPU 計時為單機實測，受系統負載影響約 ±30%（n=24/depth=3 曾測得 90.6 s）。
@@ -141,7 +143,7 @@ python quantum_vqe/quantum_stack_benchmark.py --all --verify-target --depths 1,3
 統一輸出格式（`outputs/stack_<backend>.csv`）：
 `backend, device, target, precision, qubits, depth, runtime_s, expectation`
 
-> 圖表：`outputs/stack_benchmark.png`（依 depth 分 subplot）
+> 圖表：`outputs/stack_summary.png`（n=24 摘要）與 `outputs/stack_benchmark.png`（依 depth 分 subplot）
 
 ## IBM Quantum 雲端實測
 
