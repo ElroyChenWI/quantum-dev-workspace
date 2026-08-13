@@ -20,6 +20,7 @@ quantum_vqe/
 +-- run_ibm_vqe_batched.py      # Batched/session IBM VQE workflow
 +-- scale_experiment.py         # CPU scaling experiment
 +-- quantum_stack_benchmark.py  # CPU / naive GPU / CUDA-Q / IBM benchmark
++-- quantum_router.py           # Resource-aware backend router CLI
 +-- plot_comparison.py          # VQE convergence plot
 +-- wsl_test_gpu.py             # CUDA-Q GPU smoke test
 +-- outputs/                    # CSV outputs and plots
@@ -169,3 +170,15 @@ Numerical cross-check across 12 shared points:
 - `--verify-target` records the actual device and backend target.
 - Qiskit Pauli endianness is handled so all simulator layers measure the same qubit-0 observable.
 - IBM Quantum is reported as real-hardware execution semantics, not simulator runtime.
+
+## Resource-Aware Router
+
+`quantum_router.py` recommends an execution backend from benchmark-derived runtime models and memory estimates:
+
+```powershell
+python quantum_vqe/quantum_router.py --qubits 8 --depth 1 --accuracy exact --time-budget 1
+python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
+python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware --allow-ibm
+```
+
+The router is conservative: exact mode selects only noiseless simulators, while IBM must be explicitly allowed for hardware semantics.

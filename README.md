@@ -19,6 +19,7 @@ The intent is not to claim practical quantum advantage. The project documents a 
 | Real-hardware execution | IBM Quantum Runtime was used for both a fixed-parameter Estimator check and a small hardware-in-the-loop VQE trajectory on `ibm_kingston`, a 156-qubit IBM backend. |
 | Simulator scaling | CPU statevector experiments show the exponential cost of increasing qubit count. |
 | Backend benchmark | At `n=24`, `depth=3`, CUDA-Q/cuStateVec completed one expectation evaluation in `0.19 s`, compared with `72.8 s` on CPU simulation in this local measurement. |
+| Adaptive routing | A resource-aware router estimates runtime/memory from benchmark CSV files and recommends CPU, CUDA-Q, or IBM execution semantics based on budgets and accuracy mode. |
 
 ## Quick Start
 
@@ -145,6 +146,26 @@ Numerical cross-check across 12 shared points:
 
 IBM Quantum is treated separately because queue time and noisy QPU execution are not directly comparable to simulator runtime.
 
+## Resource-Aware Router
+
+The repository includes a small adaptive execution router for variational workflows. It reads the benchmark CSV files, fits simple runtime models, estimates statevector memory, and recommends an execution backend under explicit constraints.
+
+```powershell
+python quantum_vqe/quantum_router.py --qubits 8 --depth 1 --accuracy exact --time-budget 1
+python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
+python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware --allow-ibm
+```
+
+The router distinguishes three modes:
+
+| Mode | Behavior |
+|---|---|
+| `exact` | Selects only noiseless local simulators such as CPU or CUDA-Q. |
+| `estimate` | Selects the fastest feasible local backend and may recommend IBM only when explicitly allowed. |
+| `hardware` | Selects IBM only when real-QPU semantics are requested and `--allow-ibm` is provided. |
+
+This is a prototype resource-aware execution policy, not a universal quantum scheduler. IBM is intentionally gated because QPU results are noisy and queue-limited.
+
 ## Reproducing Results
 
 Local CPU workflows:
@@ -154,6 +175,7 @@ python demo.py
 python quantum_vqe/scale_experiment.py
 python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target
 python quantum_vqe/quantum_stack_benchmark.py --plot --depths 1,3
+python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
 ```
 
 WSL2 CUDA-Q workflows:
@@ -195,6 +217,7 @@ Quant_DEV/
 |   +-- run_ibm_vqe_batched.py
 |   +-- scale_experiment.py
 |   +-- quantum_stack_benchmark.py
+|   +-- quantum_router.py
 |   +-- plot_comparison.py
 |   +-- outputs/
 +-- src/quant_dev/

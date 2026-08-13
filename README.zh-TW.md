@@ -19,6 +19,7 @@
 | 真實硬體執行 | IBM Quantum Runtime 已用於固定參數 Estimator 檢查，以及 `ibm_kingston` 156-qubit backend 上的小型 hardware-in-the-loop VQE trajectory。 |
 | 模擬規模實驗 | CPU statevector 實驗展示 qubit 數增加時的指數成本。 |
 | 後端 benchmark | 在 `n=24`、`depth=3` 時，本地測得 CUDA-Q/cuStateVec 單次 expectation evaluation 為 `0.19 s`，CPU 模擬為 `72.8 s`。 |
+| 自適應路由 | resource-aware router 會讀取 benchmark CSV，根據 runtime、memory、accuracy mode 與預算建議 CPU、CUDA-Q 或 IBM execution semantics。 |
 
 ## 快速開始
 
@@ -141,6 +142,24 @@ WSL2 + NVIDIA RTX 2060 實測：
 
 IBM Quantum 另行處理，因為 queue time 與含雜訊的 QPU execution 不應直接與 simulator runtime 比較。
 
+## Resource-Aware Router
+
+專案新增了一個面向變分量子工作流的自適應執行路由器。它會讀取 benchmark CSV，擬合簡單 runtime model，估算 statevector memory，並在明確條件下建議執行後端。
+
+```powershell
+python quantum_vqe/quantum_router.py --qubits 8 --depth 1 --accuracy exact --time-budget 1
+python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
+python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware --allow-ibm
+```
+
+| 模式 | 行為 |
+|---|---|
+| `exact` | 只選 CPU / CUDA-Q 這類 noiseless local simulators。 |
+| `estimate` | 選最快可行的本地後端；只有明確允許時才會建議 IBM。 |
+| `hardware` | 只有在要求 real-QPU semantics 且提供 `--allow-ibm` 時才選 IBM。 |
+
+這是一個 resource-aware execution policy prototype，不是通用量子排程器。IBM 被刻意 gate 起來，因為 QPU 結果含雜訊且受 queue time 影響。
+
 ## 複現方式
 
 本地 CPU：
@@ -150,6 +169,7 @@ python demo.py
 python quantum_vqe/scale_experiment.py
 python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target
 python quantum_vqe/quantum_stack_benchmark.py --plot --depths 1,3
+python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
 ```
 
 WSL2 CUDA-Q：
