@@ -170,6 +170,7 @@ IBM Quantum workflow:
 python quantum_vqe/run_ibm_cloud.py --list
 python quantum_vqe/run_ibm_cloud.py --backend ibm_kingston
 python quantum_vqe/run_ibm_vqe.py --backend ibm_kingston --maxiter 12
+python quantum_vqe/run_ibm_vqe_batched.py --backend ibm_kingston --rounds 20 --session-max-time 2h
 ```
 
 Requires `QISKIT_IBM_TOKEN` in `.env` or the environment. Do not commit real tokens.
@@ -191,6 +192,7 @@ Quant_DEV/
 |   +-- run_cudaq.py
 |   +-- run_ibm_cloud.py
 |   +-- run_ibm_vqe.py
+|   +-- run_ibm_vqe_batched.py
 |   +-- scale_experiment.py
 |   +-- quantum_stack_benchmark.py
 |   +-- plot_comparison.py

@@ -17,6 +17,7 @@ quantum_vqe/
 +-- run_cudaq.py                # CUDA-Q VQE, requires WSL2/Linux/Docker
 +-- run_ibm_cloud.py            # IBM Quantum Runtime Estimator workflow
 +-- run_ibm_vqe.py              # Hardware-in-the-loop IBM VQE
++-- run_ibm_vqe_batched.py      # Batched/session IBM VQE workflow
 +-- scale_experiment.py         # CPU scaling experiment
 +-- quantum_stack_benchmark.py  # CPU / naive GPU / CUDA-Q / IBM benchmark
 +-- plot_comparison.py          # VQE convergence plot
@@ -94,6 +95,14 @@ The recorded run completed 10 hardware evaluations before evaluation 11 remained
 ![IBM hardware-in-the-loop VQE trajectory](outputs/ibm_vqe_trajectory.png)
 
 The trajectory demonstrates hardware-in-the-loop optimizer progress, but it is not a fully converged hardware chemistry calculation.
+
+For longer real-hardware runs, prefer the batched/session workflow:
+
+```powershell
+python quantum_vqe/run_ibm_vqe_batched.py --backend ibm_kingston --rounds 20 --session-max-time 2h
+```
+
+This submits one Estimator job per optimization round. Each job evaluates the current point plus the positive and negative coordinate-search moves for all four ansatz parameters. The script writes a resumable JSON state file, CSV history, and trajectory plot after every round.
 
 ## Scaling Experiment
 

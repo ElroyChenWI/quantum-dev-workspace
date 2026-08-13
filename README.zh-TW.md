@@ -166,6 +166,7 @@ IBM Quantum：
 python quantum_vqe/run_ibm_cloud.py --list
 python quantum_vqe/run_ibm_cloud.py --backend ibm_kingston
 python quantum_vqe/run_ibm_vqe.py --backend ibm_kingston --maxiter 12
+python quantum_vqe/run_ibm_vqe_batched.py --backend ibm_kingston --rounds 20 --session-max-time 2h
 ```
 
 需要在 `.env` 或環境變數設定 `QISKIT_IBM_TOKEN`。請勿提交真實 token。
@@ -178,3 +179,4 @@ python quantum_vqe/run_ibm_vqe.py --backend ibm_kingston --maxiter 12
 - IBM Quantum 結果反映含雜訊的硬體執行，不應直接與 simulator runtime 比較。
 - 固定參數 IBM 結果不是 VQE 收斂結果。
 - IBM hardware-in-the-loop VQE 是小型 noisy run，不應解讀為完整收斂的 chemistry 計算。
+- 若要讓硬體 VQE 更接近「一次跑完」，請優先使用 `run_ibm_vqe_batched.py`。它使用 Runtime Session，並在每一輪把多個候選參數打包成同一個 Estimator job。
