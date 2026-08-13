@@ -23,7 +23,7 @@ The intent is not to claim practical quantum advantage. The project documents a 
 
 ## Environment Self-Check
 
-After cloning the repository, run the environment profiler first. It records the local Python stack, available GPU tooling, WSL status, IBM token configuration, and small CPU/CUDA-Q smoke benchmarks.
+After cloning the repository, run the local environment profiler first. It records the Python stack, available GPU tooling, WSL status, and small CPU/CUDA-Q smoke benchmarks.
 
 ```powershell
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
@@ -31,16 +31,18 @@ python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 
 The profiler writes:
 
-- `quantum_vqe/outputs/env_profile.json` for machine-readable capability data.
+- `quantum_vqe/outputs/env_profile.json` for machine-readable local capability data.
 - `quantum_vqe/outputs/env_profile.md` for a human-readable environment report.
 
-Use `--check-ibm` only when you want the script to query IBM Quantum backend availability:
+Cloud/QPU state is checked separately:
 
 ```powershell
-python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1 --check-ibm
+python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 ```
 
-This step is intentionally local-first. It answers whether the current machine should use CPU simulation, CUDA-Q/GPU simulation, or explicit IBM QPU submission.
+This writes `quantum_vqe/outputs/cloud_profile.json` and `quantum_vqe/outputs/cloud_profile.md`, including IBM account availability, usage data when exposed by the Runtime client, backend operational status, and queue depth. Account identifiers and tokens are not written.
+
+The router reads both profiles by default. This makes routing local- and account-aware: CPU/GPU availability comes from `env_profile.json`, while IBM eligibility comes from `cloud_profile.json`.
 
 ## Quick Start
 
@@ -177,6 +179,8 @@ python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --ti
 python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware --allow-ibm
 ```
 
+By default, the router also reads `quantum_vqe/outputs/env_profile.json` and `quantum_vqe/outputs/cloud_profile.json`. Local profile data controls CPU/GPU availability and memory budgets; cloud profile data gates IBM availability, usage-limit status, and backend operational status.
+
 The router distinguishes three modes:
 
 | Mode | Behavior |
@@ -195,6 +199,7 @@ Local CPU workflows:
 python demo.py
 python quantum_vqe/scale_experiment.py
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
+python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target
 python quantum_vqe/quantum_stack_benchmark.py --plot --depths 1,3
 python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
@@ -239,6 +244,7 @@ Quant_DEV/
 |   +-- run_ibm_vqe_batched.py
 |   +-- scale_experiment.py
 |   +-- quantum_env_check.py
+|   +-- quantum_cloud_check.py
 |   +-- quantum_stack_benchmark.py
 |   +-- quantum_router.py
 |   +-- plot_comparison.py

@@ -18,7 +18,7 @@
 
 ## 環境自檢
 
-新機器 clone repo 後，建議先跑環境自檢。這個程序會記錄 Python 套件、GPU 工具、WSL 狀態、IBM token 設定，以及小型 CPU/CUDA-Q smoke benchmark。
+新機器 clone repo 後，建議先跑本機環境自檢。這個程序會記錄 Python 套件、GPU 工具、WSL 狀態，以及小型 CPU/CUDA-Q smoke benchmark。
 
 ```powershell
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
@@ -26,16 +26,18 @@ python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 
 輸出檔案：
 
-- `quantum_vqe/outputs/env_profile.json`：機器可讀的能力 profile。
+- `quantum_vqe/outputs/env_profile.json`：機器可讀的本機能力 profile。
 - `quantum_vqe/outputs/env_profile.md`：人可讀的環境報告。
 
-只有在需要查詢 IBM Quantum backend 狀態時才加上 `--check-ibm`：
+雲端/QPU 能力另外檢查：
 
 ```powershell
-python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1 --check-ibm
+python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 ```
 
-這一步的目的，是讓 repo 先回答目前機器適合走 CPU 模擬、CUDA-Q/GPU 模擬，或需要明確送 IBM QPU。
+這會輸出 `quantum_vqe/outputs/cloud_profile.json` 與 `quantum_vqe/outputs/cloud_profile.md`，記錄 IBM 帳號是否可用、Runtime client 可取得的 usage/quota 資訊、backend operational 狀態與 pending jobs。profile 不會寫入 token 或帳號識別碼。
+
+router 預設會讀取這兩份 profile：`env_profile.json` 決定 CPU/GPU 本機能力，`cloud_profile.json` 決定 IBM 是否可被推薦。
 
 ## 快速開始
 
@@ -131,6 +133,8 @@ python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --ti
 python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware --allow-ibm
 ```
 
+router 預設也會讀取 `quantum_vqe/outputs/env_profile.json` 與 `quantum_vqe/outputs/cloud_profile.json`。本機 profile 控制 CPU/GPU availability 與記憶體預算；cloud profile 控制 IBM availability、usage limit 狀態與 backend operational 狀態。
+
 | 模式 | 行為 |
 |---|---|
 | `exact` | 只選擇 CPU / CUDA-Q 等 noiseless local simulators。 |
@@ -146,6 +150,7 @@ python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware -
 ```powershell
 python demo.py
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
+python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 python quantum_vqe/scale_experiment.py
 python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target
 python quantum_vqe/quantum_stack_benchmark.py --plot --depths 1,3
@@ -191,6 +196,7 @@ Quant_DEV/
 |   +-- run_ibm_vqe_batched.py
 |   +-- scale_experiment.py
 |   +-- quantum_env_check.py
+|   +-- quantum_cloud_check.py
 |   +-- quantum_stack_benchmark.py
 |   +-- quantum_router.py
 |   +-- plot_comparison.py

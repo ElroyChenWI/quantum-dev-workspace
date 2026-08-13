@@ -20,6 +20,7 @@ quantum_vqe/
 +-- run_ibm_vqe_batched.py      # Batched/session IBM VQE workflow
 +-- scale_experiment.py         # CPU scaling experiment
 +-- quantum_env_check.py        # Local environment and backend capability profiler
++-- quantum_cloud_check.py      # IBM account/backend capability profiler
 +-- quantum_stack_benchmark.py  # CPU / naive GPU / CUDA-Q / IBM benchmark
 +-- quantum_router.py           # Resource-aware backend router CLI
 +-- plot_comparison.py          # VQE convergence plot
@@ -35,12 +36,18 @@ Run this first on a new machine:
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 ```
 
-It checks installed Python packages, `nvidia-smi`, WSL availability, IBM token configuration, and lightweight CPU/CUDA-Q smoke benchmarks. Results are written to:
+It checks installed Python packages, `nvidia-smi`, WSL availability, and lightweight CPU/CUDA-Q smoke benchmarks. Results are written to:
 
 - `quantum_vqe/outputs/env_profile.json`
 - `quantum_vqe/outputs/env_profile.md`
 
-Use `--check-ibm` only when an IBM backend availability query is desired.
+Check cloud/QPU capability separately:
+
+```powershell
+python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
+```
+
+This writes `quantum_vqe/outputs/cloud_profile.json` and `quantum_vqe/outputs/cloud_profile.md`. The router reads both local and cloud profiles by default.
 
 ## H2 VQE
 

@@ -9,6 +9,7 @@ hardware-behavior requests or when local simulation is infeasible.
 from __future__ import annotations
 
 import csv
+import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -109,25 +110,125 @@ def _predict_runtime(model: tuple[float, float, float] | None, qubits: int, dept
     return math.exp(a + b * qubits + c * math.log(max(depth, 1)))
 
 
-def _availability() -> dict[str, bool]:
+def _read_json(path: Path | None) -> dict[str, object]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _profile_bool(profile: dict[str, object], *keys: str) -> bool | None:
+    current: object = profile
+    for key in keys:
+        if not isinstance(current, dict) or key not in current:
+            return None
+        current = current[key]
+    return bool(current)
+
+
+def _profile_ram_gb(profile: dict[str, object], fallback: float) -> float:
+    system = profile.get("system")
+    if isinstance(system, dict):
+        value = system.get("ram_gb")
+        if isinstance(value, (int, float)) and value > 0:
+            return float(value)
+    return fallback
+
+
+def _profile_vram_gb(profile: dict[str, object], fallback: float) -> float:
+    hardware = profile.get("hardware")
+    if not isinstance(hardware, dict):
+        return fallback
+    gpu_query = hardware.get("nvidia_gpu_query")
+    if not isinstance(gpu_query, dict):
+        return fallback
+    stdout = str(gpu_query.get("stdout", ""))
+    # nvidia-smi query format: "NVIDIA GeForce RTX 2060, 6144 MiB, 581.42".
+    for part in stdout.split(","):
+        part = part.strip()
+        if part.lower().endswith("mib"):
+            try:
+                return float(part.split()[0]) / 1024.0
+            except (IndexError, ValueError):
+                return fallback
+    return fallback
+
+
+def _availability(env_profile: dict[str, object], cloud_profile: dict[str, object]) -> dict[str, bool]:
     available = {"cpu": False, "cudaq": False, "ibm": False}
-    try:
-        import qiskit  # noqa: F401
+    cpu_from_profile = _profile_bool(env_profile, "python_modules", "qiskit", "available")
+    cudaq_from_profile = _profile_bool(env_profile, "cudaq_smoke", "available")
+    nvidia_from_profile = _profile_bool(env_profile, "hardware", "nvidia_smi", "available")
+    ibm_from_cloud = _profile_bool(cloud_profile, "ibm", "configured")
 
-        available["cpu"] = True
-    except ImportError:
-        pass
-    try:
-        import cudaq  # noqa: F401
+    if cpu_from_profile is None:
+        try:
+            import qiskit  # noqa: F401
 
-        available["cudaq"] = True
-    except ImportError:
-        pass
-    # Treat IBM as configured if a token source exists; do not validate network
-    # in the router because routing should be cheap and side-effect free.
+            available["cpu"] = True
+        except ImportError:
+            pass
+    else:
+        available["cpu"] = cpu_from_profile
+
+    if cudaq_from_profile is None:
+        try:
+            import cudaq  # noqa: F401
+
+            available["cudaq"] = True
+        except ImportError:
+            pass
+    else:
+        available["cudaq"] = cudaq_from_profile and (nvidia_from_profile is not False)
+
     root = Path(__file__).resolve().parents[2]
-    available["ibm"] = (root / ".env").exists()
+    if ibm_from_cloud is None:
+        available["ibm"] = (root / ".env").exists()
+    else:
+        available["ibm"] = _ibm_cloud_available(cloud_profile)
     return available
+
+
+def _ibm_cloud_available(cloud_profile: dict[str, object]) -> bool:
+    ibm = cloud_profile.get("ibm")
+    if not isinstance(ibm, dict):
+        return False
+    if not ibm.get("configured") or ibm.get("network_ok") is False:
+        return False
+    usage = ibm.get("usage")
+    if isinstance(usage, dict):
+        data = usage.get("data")
+        if isinstance(data, dict) and data.get("usage_limit_reached") is True:
+            return False
+    backends = ibm.get("backends")
+    if isinstance(backends, list) and backends:
+        return any(isinstance(backend, dict) and backend.get("operational") for backend in backends)
+    return True
+
+
+def _cloud_ibm_reason(cloud_profile: dict[str, object]) -> str:
+    ibm = cloud_profile.get("ibm")
+    if not isinstance(ibm, dict):
+        return "cloud profile not found; IBM availability falls back to local token detection"
+    if not ibm.get("configured"):
+        return "IBM token is not configured"
+    if ibm.get("network_ok") is False:
+        return f"IBM profile query failed: {ibm.get('error', 'unknown error')}"
+    usage = ibm.get("usage")
+    if isinstance(usage, dict):
+        data = usage.get("data")
+        if isinstance(data, dict) and data.get("usage_limit_reached") is True:
+            return "IBM usage limit is marked as reached"
+    backends = ibm.get("backends")
+    if isinstance(backends, list) and backends and not any(
+        isinstance(backend, dict) and backend.get("operational") for backend in backends
+    ):
+        return "IBM profile has no operational backend"
+    if isinstance(usage, dict) and usage.get("available"):
+        return "IBM account profile available; usage information was recorded"
+    return "IBM account profile available; quota/usage was not exposed by the local Runtime API"
 
 
 def route(
@@ -139,6 +240,8 @@ def route(
     vram_gb: float = 6.0,
     allow_ibm: bool = False,
     data_dir: Path | None = None,
+    env_profile_path: Path | None = None,
+    cloud_profile_path: Path | None = None,
 ) -> RoutingDecision:
     """Return a backend recommendation for a circuit size and accuracy mode.
 
@@ -153,7 +256,13 @@ def route(
 
     repo_root = Path(__file__).resolve().parents[2]
     data_dir = data_dir or repo_root / "quantum_vqe" / "outputs"
-    available = _availability()
+    env_profile_path = env_profile_path or data_dir / "env_profile.json"
+    cloud_profile_path = cloud_profile_path or data_dir / "cloud_profile.json"
+    env_profile = _read_json(env_profile_path)
+    cloud_profile = _read_json(cloud_profile_path)
+    available = _availability(env_profile, cloud_profile)
+    ram_gb = _profile_ram_gb(env_profile, ram_gb)
+    vram_gb = _profile_vram_gb(env_profile, vram_gb)
     mem_gb = statevector_memory_gb(qubits)
 
     cpu_model = _fit_log_runtime(_read_stack_csv(data_dir / "stack_cpu.csv"))
@@ -191,9 +300,9 @@ def route(
     if accuracy == "exact":
         ibm_reason = "exact/noiseless accuracy requested; IBM QPU is noisy hardware and is not eligible"
     elif ibm_feasible:
-        ibm_reason = "real-QPU execution requested/allowed; result is noisy and queue-limited"
+        ibm_reason = f"real-QPU execution requested/allowed; {_cloud_ibm_reason(cloud_profile)}"
     else:
-        ibm_reason = "IBM is gated; pass --allow-ibm for hardware execution recommendation"
+        ibm_reason = f"IBM is gated; pass --allow-ibm for hardware execution recommendation; {_cloud_ibm_reason(cloud_profile)}"
     estimates.append(
         BackendEstimate(
             backend="ibm",

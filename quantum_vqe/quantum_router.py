@@ -29,6 +29,18 @@ def main() -> None:
     parser.add_argument("--ram-gb", type=float, default=16.0)
     parser.add_argument("--vram-gb", type=float, default=6.0)
     parser.add_argument("--allow-ibm", action="store_true", help="Allow IBM QPU to be selected/recommended.")
+    parser.add_argument(
+        "--env-profile",
+        type=Path,
+        default=ROOT / "quantum_vqe" / "outputs" / "env_profile.json",
+        help="Local capability profile produced by quantum_env_check.py.",
+    )
+    parser.add_argument(
+        "--cloud-profile",
+        type=Path,
+        default=ROOT / "quantum_vqe" / "outputs" / "cloud_profile.json",
+        help="Cloud capability profile produced by quantum_cloud_check.py.",
+    )
     args = parser.parse_args()
 
     decision = route(
@@ -39,12 +51,16 @@ def main() -> None:
         ram_gb=args.ram_gb,
         vram_gb=args.vram_gb,
         allow_ibm=args.allow_ibm,
+        env_profile_path=args.env_profile,
+        cloud_profile_path=args.cloud_profile,
     )
 
     print("Resource-aware quantum routing")
     print("=" * 40)
     print(f"problem: qubits={args.qubits}, depth={args.depth}, accuracy={args.accuracy}")
-    print(f"budgets: time<={args.time_budget:.1f}s, RAM<={args.ram_gb:.1f}GB, VRAM<={args.vram_gb:.1f}GB")
+    print(f"budgets: time<={args.time_budget:.1f}s, RAM/VRAM from profiles when available")
+    print(f"env_profile: {args.env_profile}")
+    print(f"cloud_profile: {args.cloud_profile}")
     print()
     print("| backend | available | feasible | est_time | est_memory | reason |")
     print("|---|---:|---:|---:|---:|---|")
