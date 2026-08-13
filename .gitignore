@@ -33,6 +33,7 @@ outputs/**
 !outputs/**/*.csv
 *.h5
 *.qasm.bak
+*.log
 
 # OS
 Thumbs.db

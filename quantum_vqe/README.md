@@ -16,6 +16,7 @@ quantum_vqe/
 +-- run_pennylane.py            # PennyLane VQE
 +-- run_cudaq.py                # CUDA-Q VQE, requires WSL2/Linux/Docker
 +-- run_ibm_cloud.py            # IBM Quantum Runtime Estimator workflow
++-- run_ibm_vqe.py              # Hardware-in-the-loop IBM VQE
 +-- scale_experiment.py         # CPU scaling experiment
 +-- quantum_stack_benchmark.py  # CPU / naive GPU / CUDA-Q / IBM benchmark
 +-- plot_comparison.py          # VQE convergence plot
@@ -72,6 +73,27 @@ python quantum_vqe/run_ibm_cloud.py --backend ibm_kingston
 ```
 
 Requires `QISKIT_IBM_TOKEN` in `.env` or the environment.
+
+## IBM Hardware-in-the-Loop VQE
+
+`run_ibm_vqe.py` runs the classical optimizer locally and sends each energy evaluation to IBM Runtime Estimator:
+
+```powershell
+python quantum_vqe/run_ibm_vqe.py --backend ibm_kingston --maxiter 12
+```
+
+The recorded run completed 10 hardware evaluations before evaluation 11 remained queued and was cancelled.
+
+| Metric | Value |
+|---|---:|
+| Initial IBM evaluation | `-1.056036 Ha` |
+| Best observed IBM evaluation | `-1.526744 Ha` |
+| Completed hardware evaluations | `10` |
+| Best evaluation index | `8` |
+
+![IBM hardware-in-the-loop VQE trajectory](outputs/ibm_vqe_trajectory.png)
+
+The trajectory demonstrates hardware-in-the-loop optimizer progress, but it is not a fully converged hardware chemistry calculation.
 
 ## Scaling Experiment
 

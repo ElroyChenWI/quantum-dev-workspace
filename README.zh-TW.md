@@ -16,7 +16,7 @@
 | 項目 | 證據 |
 |---|---|
 | 跨框架 VQE | Qiskit、PennyLane、CUDA-Q 都收斂到 H2 參考基態能量 `-1.857275 Ha`。 |
-| 真實硬體執行 | IBM Quantum Runtime Estimator job 已在 `ibm_kingston` 156-qubit backend 執行。 |
+| 真實硬體執行 | IBM Quantum Runtime 已用於固定參數 Estimator 檢查，以及 `ibm_kingston` 156-qubit backend 上的小型 hardware-in-the-loop VQE trajectory。 |
 | 模擬規模實驗 | CPU statevector 實驗展示 qubit 數增加時的指數成本。 |
 | 後端 benchmark | 在 `n=24`、`depth=3` 時，本地測得 CUDA-Q/cuStateVec 單次 expectation evaluation 為 `0.19 s`，CPU 模擬為 `72.8 s`。 |
 
@@ -46,11 +46,10 @@ VQE 實驗使用共用的 2-qubit H2 Hamiltonian、4 參數 ansatz 與 COBYLA op
 | Qiskit | 本地 CPU | `-1.857275 Ha` | VQE 收斂，誤差約 `1e-13 Ha` |
 | PennyLane | 本地 CPU | `-1.857275 Ha` | VQE 收斂，誤差約 `1e-13 Ha` |
 | CUDA-Q | WSL2 + NVIDIA RTX 2060 | `-1.857275 Ha` | GPU target，誤差約 `2e-7 Ha` |
-| IBM Quantum | `ibm_kingston` 真實 QPU | `-1.088185 Ha` | 固定參數 Estimator 結果，不是完整硬體 VQE 最佳化 |
 
 ![VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
 
-### IBM Quantum 結果
+### IBM Quantum 固定參數檢查
 
 IBM 結果是使用同一個 H2 ansatz、observable 與參數向量 `[0.1, 0.1, 0.05, 0.05]` 所做的單點 Estimator evaluation。
 
@@ -61,6 +60,27 @@ IBM 結果是使用同一個 H2 ansatz、observable 與參數向量 `[0.1, 0.1, 
 | 差異 | 約 `0.04 Ha` |
 
 這個差異應解讀為真實硬體 noise、shot statistics、transpilation/layout，以及未做 error mitigation 下的實機行為。它不是與最佳化後 VQE 基態能量的比較。
+
+### IBM Hardware-in-the-Loop VQE
+
+為了區分單點 Estimator 與真正的 VQE loop，專案也加入了一次小型 hardware-in-the-loop VQE：
+
+```text
+本地 COBYLA optimizer -> IBM Runtime Estimator energy(theta) -> 更新參數
+```
+
+這次在 `ibm_kingston` 上完成 10 次 hardware energy evaluations。第 11 次 evaluation 長時間 queued，已取消；前 10 筆已足以呈現 optimizer 在真硬體 energy landscape 上的下降 trajectory。
+
+| 指標 | 數值 |
+|---|---:|
+| 初始 IBM evaluation | `-1.056036 Ha` |
+| 最佳 IBM evaluation | `-1.526744 Ha` |
+| 已完成硬體 evaluations | `10` |
+| 最佳 evaluation index | `8` |
+
+![IBM hardware-in-the-loop VQE trajectory](quantum_vqe/outputs/ibm_vqe_trajectory.png)
+
+這應解讀為小型 noisy-hardware VQE trajectory，不是完整收斂的 chemistry-grade 結果。主要時間成本來自 sequential QPU queue 與 job latency。
 
 ## 指數規模實驗
 
@@ -145,6 +165,7 @@ IBM Quantum：
 ```powershell
 python quantum_vqe/run_ibm_cloud.py --list
 python quantum_vqe/run_ibm_cloud.py --backend ibm_kingston
+python quantum_vqe/run_ibm_vqe.py --backend ibm_kingston --maxiter 12
 ```
 
 需要在 `.env` 或環境變數設定 `QISKIT_IBM_TOKEN`。請勿提交真實 token。
@@ -155,4 +176,5 @@ python quantum_vqe/run_ibm_cloud.py --backend ibm_kingston
 - naive GPU simulator 是刻意簡化的 baseline，只用於教育性比較。
 - CUDA-Q/cuStateVec 仍屬 classical simulation，不是真實量子硬體。
 - IBM Quantum 結果反映含雜訊的硬體執行，不應直接與 simulator runtime 比較。
-- H2 的 IBM 結果是固定參數 Estimator evaluation，不是完整 QPU-side VQE optimization。
+- 固定參數 IBM 結果不是 VQE 收斂結果。
+- IBM hardware-in-the-loop VQE 是小型 noisy run，不應解讀為完整收斂的 chemistry 計算。

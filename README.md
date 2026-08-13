@@ -16,7 +16,7 @@ The intent is not to claim practical quantum advantage. The project documents a 
 | Area | Evidence |
 |---|---|
 | Cross-framework VQE | Qiskit, PennyLane, and CUDA-Q converge on the same H2 ground-state reference, `-1.857275 Ha`. |
-| Real-hardware execution | An IBM Quantum Runtime Estimator job was executed on `ibm_kingston`, a 156-qubit IBM backend. |
+| Real-hardware execution | IBM Quantum Runtime was used for both a fixed-parameter Estimator check and a small hardware-in-the-loop VQE trajectory on `ibm_kingston`, a 156-qubit IBM backend. |
 | Simulator scaling | CPU statevector experiments show the exponential cost of increasing qubit count. |
 | Backend benchmark | At `n=24`, `depth=3`, CUDA-Q/cuStateVec completed one expectation evaluation in `0.19 s`, compared with `72.8 s` on CPU simulation in this local measurement. |
 
@@ -46,11 +46,10 @@ The VQE implementation uses a shared 2-qubit H2 Hamiltonian, a shared 4-paramete
 | Qiskit | local CPU | `-1.857275 Ha` | VQE convergence, error about `1e-13 Ha` |
 | PennyLane | local CPU | `-1.857275 Ha` | VQE convergence, error about `1e-13 Ha` |
 | CUDA-Q | WSL2 + NVIDIA RTX 2060 | `-1.857275 Ha` | GPU target, error about `2e-7 Ha` |
-| IBM Quantum | `ibm_kingston` real QPU | `-1.088185 Ha` | Single-parameter Estimator result, not a full hardware VQE optimization |
 
 ![VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
 
-### IBM Quantum Result
+### IBM Quantum Fixed-Parameter Check
 
 The IBM result is a single Estimator evaluation using the same H2 ansatz, observable, and parameter vector `[0.1, 0.1, 0.05, 0.05]`.
 
@@ -63,6 +62,27 @@ The IBM result is a single Estimator evaluation using the same H2 ansatz, observ
 This difference should be interpreted as real-hardware behavior under noise, shot statistics, transpilation/layout choices, and the absence of error mitigation. It is not a comparison against the optimized VQE ground-state energy.
 
 See [docs/IBM_CLOUD_AUDIT.md](docs/IBM_CLOUD_AUDIT.md) for the recorded job context.
+
+### IBM Hardware-in-the-Loop VQE
+
+To distinguish a single Estimator call from a real VQE loop, the repository also includes a small hardware-in-the-loop VQE run:
+
+```text
+local COBYLA optimizer -> IBM Runtime Estimator energy(theta) -> parameter update
+```
+
+This run completed 10 hardware energy evaluations on `ibm_kingston`. Evaluation 11 remained queued and was cancelled after the completed trajectory had already demonstrated optimizer progress.
+
+| Metric | Value |
+|---|---:|
+| Initial IBM evaluation | `-1.056036 Ha` |
+| Best observed IBM evaluation | `-1.526744 Ha` |
+| Completed hardware evaluations | `10` |
+| Best evaluation index | `8` |
+
+![IBM hardware-in-the-loop VQE trajectory](quantum_vqe/outputs/ibm_vqe_trajectory.png)
+
+The result should be interpreted as a small noisy-hardware VQE trajectory, not as a fully converged chemistry result. Runtime is dominated by sequential QPU queue and job latency.
 
 ## Exponential Scaling Experiment
 
@@ -149,6 +169,7 @@ IBM Quantum workflow:
 ```powershell
 python quantum_vqe/run_ibm_cloud.py --list
 python quantum_vqe/run_ibm_cloud.py --backend ibm_kingston
+python quantum_vqe/run_ibm_vqe.py --backend ibm_kingston --maxiter 12
 ```
 
 Requires `QISKIT_IBM_TOKEN` in `.env` or the environment. Do not commit real tokens.
@@ -169,6 +190,7 @@ Quant_DEV/
 |   +-- run_pennylane.py
 |   +-- run_cudaq.py
 |   +-- run_ibm_cloud.py
+|   +-- run_ibm_vqe.py
 |   +-- scale_experiment.py
 |   +-- quantum_stack_benchmark.py
 |   +-- plot_comparison.py
@@ -192,7 +214,8 @@ Quant_DEV/
 - The naive GPU simulator is intentionally simple and used only as an educational baseline.
 - CUDA-Q/cuStateVec remains a classical simulation path; it is not real quantum hardware.
 - IBM Quantum results reflect noisy hardware execution and should not be compared directly against local simulator runtime.
-- The H2 IBM result is a single Estimator evaluation at fixed parameters, not a full QPU-side VQE optimization.
+- The fixed-parameter IBM result is not a VQE convergence result.
+- The IBM hardware-in-the-loop VQE trajectory is a small noisy run and should not be interpreted as a fully converged chemistry calculation.
 
 ## References
 
