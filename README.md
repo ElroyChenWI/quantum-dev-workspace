@@ -21,6 +21,27 @@ The intent is not to claim practical quantum advantage. The project documents a 
 | Backend benchmark | At `n=24`, `depth=3`, CUDA-Q/cuStateVec completed one expectation evaluation in `0.19 s`, compared with `72.8 s` on CPU simulation in this local measurement. |
 | Adaptive routing | A resource-aware router estimates runtime/memory from benchmark CSV files and recommends CPU, CUDA-Q, or IBM execution semantics based on budgets and accuracy mode. |
 
+## Environment Self-Check
+
+After cloning the repository, run the environment profiler first. It records the local Python stack, available GPU tooling, WSL status, IBM token configuration, and small CPU/CUDA-Q smoke benchmarks.
+
+```powershell
+python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
+```
+
+The profiler writes:
+
+- `quantum_vqe/outputs/env_profile.json` for machine-readable capability data.
+- `quantum_vqe/outputs/env_profile.md` for a human-readable environment report.
+
+Use `--check-ibm` only when you want the script to query IBM Quantum backend availability:
+
+```powershell
+python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1 --check-ibm
+```
+
+This step is intentionally local-first. It answers whether the current machine should use CPU simulation, CUDA-Q/GPU simulation, or explicit IBM QPU submission.
+
 ## Quick Start
 
 Windows local environment:
@@ -173,6 +194,7 @@ Local CPU workflows:
 ```powershell
 python demo.py
 python quantum_vqe/scale_experiment.py
+python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target
 python quantum_vqe/quantum_stack_benchmark.py --plot --depths 1,3
 python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
@@ -216,6 +238,7 @@ Quant_DEV/
 |   +-- run_ibm_vqe.py
 |   +-- run_ibm_vqe_batched.py
 |   +-- scale_experiment.py
+|   +-- quantum_env_check.py
 |   +-- quantum_stack_benchmark.py
 |   +-- quantum_router.py
 |   +-- plot_comparison.py

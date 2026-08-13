@@ -19,12 +19,28 @@ quantum_vqe/
 +-- run_ibm_vqe.py              # Hardware-in-the-loop IBM VQE
 +-- run_ibm_vqe_batched.py      # Batched/session IBM VQE workflow
 +-- scale_experiment.py         # CPU scaling experiment
++-- quantum_env_check.py        # Local environment and backend capability profiler
 +-- quantum_stack_benchmark.py  # CPU / naive GPU / CUDA-Q / IBM benchmark
 +-- quantum_router.py           # Resource-aware backend router CLI
 +-- plot_comparison.py          # VQE convergence plot
 +-- wsl_test_gpu.py             # CUDA-Q GPU smoke test
 +-- outputs/                    # CSV outputs and plots
 ```
+
+## Environment Self-Check
+
+Run this first on a new machine:
+
+```powershell
+python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
+```
+
+It checks installed Python packages, `nvidia-smi`, WSL availability, IBM token configuration, and lightweight CPU/CUDA-Q smoke benchmarks. Results are written to:
+
+- `quantum_vqe/outputs/env_profile.json`
+- `quantum_vqe/outputs/env_profile.md`
+
+Use `--check-ibm` only when an IBM backend availability query is desired.
 
 ## H2 VQE
 

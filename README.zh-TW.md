@@ -2,28 +2,44 @@
 
 [English](README.md)
 
-這是一個可重現的量子軟體開發工作區，用於比較本地模擬、GPU 加速模擬、CUDA-Q，以及 IBM Quantum Runtime 的執行流程。
+這是一個可重現的量子軟體開發 workspace，用來比較本機模擬、GPU 加速模擬、CUDA-Q，以及 IBM Quantum Runtime 的執行流程。
 
-專案分成兩條主線：
+這個 repo 的重點不是宣稱實用量子優勢，而是建立一個專業的量子開發流程：先在本機驗證演算法，再比較不同模擬後端，必要時使用 GPU 加速，最後將選定的電路送到真實 QPU 觀察 noisy hardware 行為。
 
-- **演算法主線：** 使用 Qiskit、PennyLane、CUDA-Q 實作同一個 H2 VQE 問題，共用 Hamiltonian 與 ansatz 定義。
-- **後端主線：** 使用同一個 hardware-efficient ansatz (HEA) 電路，比較 CPU 模擬、naive GPU 模擬、CUDA-Q/cuStateVec 加速，以及 IBM Quantum 真實 QPU 執行。
+## 核心內容
 
-這個專案不宣稱實用量子優勢。它的重點是展示一個 backend-agnostic 的量子軟體流程：先在本地驗證，再比較不同模擬器實作，必要時使用 GPU 加速，並將選定電路提交到真實量子硬體觀察含雜訊的執行結果。
-
-## 重點結果
-
-| 項目 | 證據 |
+| 主題 | 證據 |
 |---|---|
-| 跨框架 VQE | Qiskit、PennyLane、CUDA-Q 都收斂到 H2 參考基態能量 `-1.857275 Ha`。 |
-| 真實硬體執行 | IBM Quantum Runtime 已用於固定參數 Estimator 檢查，以及 `ibm_kingston` 156-qubit backend 上的小型 hardware-in-the-loop VQE trajectory。 |
-| 模擬規模實驗 | CPU statevector 實驗展示 qubit 數增加時的指數成本。 |
-| 後端 benchmark | 在 `n=24`、`depth=3` 時，本地測得 CUDA-Q/cuStateVec 單次 expectation evaluation 為 `0.19 s`，CPU 模擬為 `72.8 s`。 |
-| 自適應路由 | resource-aware router 會讀取 benchmark CSV，根據 runtime、memory、accuracy mode 與預算建議 CPU、CUDA-Q 或 IBM execution semantics。 |
+| 跨框架 VQE | Qiskit、PennyLane、CUDA-Q 使用同一個 H2 Hamiltonian 與 ansatz，收斂到 `-1.857275 Ha`。 |
+| 真實硬體執行 | IBM Quantum Runtime 已用於固定參數 Estimator 檢查，以及 `ibm_kingston` 上的小型 hardware-in-the-loop VQE trajectory。 |
+| 模擬器擴展性 | CPU statevector 實驗顯示 qubit 增加時的指數成本。 |
+| 後端 benchmark | 在本機量測中，`n=24`、`depth=3` 時 CUDA-Q/cuStateVec 完成一次 expectation evaluation 約 `0.19 s`，CPU 約 `72.8 s`。 |
+| 自適應路由 | Resource-aware router 會根據 benchmark CSV、記憶體估計、精度模式與時間限制，建議 CPU、CUDA-Q 或 IBM 執行語意。 |
+
+## 環境自檢
+
+新機器 clone repo 後，建議先跑環境自檢。這個程序會記錄 Python 套件、GPU 工具、WSL 狀態、IBM token 設定，以及小型 CPU/CUDA-Q smoke benchmark。
+
+```powershell
+python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
+```
+
+輸出檔案：
+
+- `quantum_vqe/outputs/env_profile.json`：機器可讀的能力 profile。
+- `quantum_vqe/outputs/env_profile.md`：人可讀的環境報告。
+
+只有在需要查詢 IBM Quantum backend 狀態時才加上 `--check-ibm`：
+
+```powershell
+python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1 --check-ibm
+```
+
+這一步的目的，是讓 repo 先回答目前機器適合走 CPU 模擬、CUDA-Q/GPU 模擬，或需要明確送 IBM QPU。
 
 ## 快速開始
 
-Windows 本地環境：
+Windows 本機環境：
 
 ```powershell
 python -m venv .venv
@@ -33,96 +49,59 @@ pip install -r requirements.txt
 python demo.py
 ```
 
-`demo.py` 會執行 Qiskit 與 PennyLane VQE，並產生收斂比較圖。
-
-GPU 與 CUDA-Q 流程需要 WSL2、Linux 或 Docker。請參考 [docs/CUDA-Q_SETUP.md](docs/CUDA-Q_SETUP.md)。
+GPU 與 CUDA-Q workflow 需要 WSL2、Linux 或 Docker。設定方式見 [docs/CUDA-Q_SETUP.md](docs/CUDA-Q_SETUP.md)。
 
 ## H2 VQE
 
-VQE 實驗使用共用的 2-qubit H2 Hamiltonian、4 參數 ansatz 與 COBYLA optimizer。問題定義固定，框架差異只在執行後端。
+H2 VQE 使用共用的 2-qubit Hamiltonian、4 參數 ansatz 與 COBYLA optimizer。不同框架只替換執行引擎，問題定義保持一致。
 
 | Engine | 環境 | 結果 | 備註 |
 |---|---|---:|---|
-| Exact diagonalization | 本地 CPU | `-1.857275 Ha` | 參考值 |
-| Qiskit | 本地 CPU | `-1.857275 Ha` | VQE 收斂，誤差約 `1e-13 Ha` |
-| PennyLane | 本地 CPU | `-1.857275 Ha` | VQE 收斂，誤差約 `1e-13 Ha` |
+| Exact diagonalization | 本機 CPU | `-1.857275 Ha` | 參考值 |
+| Qiskit | 本機 CPU | `-1.857275 Ha` | VQE 收斂，誤差約 `1e-13 Ha` |
+| PennyLane | 本機 CPU | `-1.857275 Ha` | VQE 收斂，誤差約 `1e-13 Ha` |
 | CUDA-Q | WSL2 + NVIDIA RTX 2060 | `-1.857275 Ha` | GPU target，誤差約 `2e-7 Ha` |
 
 ![VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
 
-### IBM Quantum 固定參數檢查
+## IBM Quantum
 
-IBM 結果是使用同一個 H2 ansatz、observable 與參數向量 `[0.1, 0.1, 0.05, 0.05]` 所做的單點 Estimator evaluation。
+固定參數 IBM 檢查使用同一個 H2 ansatz、observable 與參數 `[0.1, 0.1, 0.05, 0.05]`。
 
 | 來源 | Energy / Expectation |
 |---|---:|
-| 本地理想 statevector，同參數 | `-1.047914 Ha` |
+| 本機 ideal statevector，同參數 | `-1.047914 Ha` |
 | IBM Quantum `ibm_kingston`，同參數 | `-1.088185 Ha` |
 | 差異 | 約 `0.04 Ha` |
 
-這個差異應解讀為真實硬體 noise、shot statistics、transpilation/layout，以及未做 error mitigation 下的實機行為。它不是與最佳化後 VQE 基態能量的比較。
+這個結果應解讀為 real-hardware behavior，包含 noise、shot statistics、transpilation/layout 與未使用 error mitigation 的影響。它不是與最佳化後 VQE ground-state energy 的直接比較。
 
-### IBM Hardware-in-the-Loop VQE
-
-為了區分單點 Estimator 與真正的 VQE loop，專案也加入了一次小型 hardware-in-the-loop VQE：
+repo 也包含 hardware-in-the-loop VQE：
 
 ```text
-本地 COBYLA optimizer -> IBM Runtime Estimator energy(theta) -> 更新參數
+local COBYLA optimizer -> IBM Runtime Estimator energy(theta) -> parameter update
 ```
 
-這次在 `ibm_kingston` 上完成 10 次 hardware energy evaluations。第 11 次 evaluation 長時間 queued，已取消；前 10 筆已足以呈現 optimizer 在真硬體 energy landscape 上的下降 trajectory。
-
-| 指標 | 數值 |
-|---|---:|
-| 初始 IBM evaluation | `-1.056036 Ha` |
-| 最佳 IBM evaluation | `-1.526744 Ha` |
-| 已完成硬體 evaluations | `10` |
-| 最佳 evaluation index | `8` |
+已記錄的 IBM run 在 `ibm_kingston` 完成 10 次 hardware energy evaluations，最佳觀測值為 `-1.526744 Ha`。這是小型 noisy-hardware VQE trajectory，不應解讀為已完全收斂的 chemistry-grade 結果。
 
 ![IBM hardware-in-the-loop VQE trajectory](quantum_vqe/outputs/ibm_vqe_trajectory.png)
 
-這應解讀為小型 noisy-hardware VQE trajectory，不是完整收斂的 chemistry-grade 結果。主要時間成本來自 sequential QPU queue 與 job latency。
-
-## 指數規模實驗
-
-規模實驗使用 CPU simulator 評估較大的 HEA 電路，觀察 statevector 模擬成本如何隨 qubit 數增加。
-
-| Qubits | 單次 evaluation 時間 | 近似 statevector 大小 |
-|---:|---:|---:|
-| 16 | `0.33 s` | `2 MB` |
-| 20 | `5.8 s` | `32 MB` |
-| 22 | `19.9 s` | `128 MB` |
-| 24 | `26.6 s` at depth 1 | `512 MB` |
-| 約 30 | 外推為分鐘級 | `16 GB` |
-
-![Scaling experiment](quantum_vqe/outputs/scaling_plot.png)
-
-這個結果說明，在 classical simulation 的範圍內，實務擴展路徑通常包括 GPU 加速、專用模擬器、tensor-network 或近似方法、分散式計算，以及真實 QPU 執行。
-
 ## Quantum Stack Benchmark
 
-Benchmark 使用同一個 HEA 電路：
+Stack benchmark 使用同一個 hardware-efficient ansatz：
 
 ```text
 RY/RZ on all qubits -> CNOT chain -> measure <Z0>
 ```
 
-| 層級 | 後端 | 角色 |
+| Layer | Backend | 角色 |
 |---|---|---|
 | L1 | Qiskit CPU statevector | 正確性基準 |
-| L2 | CuPy naive GPU statevector | 教學用 GPU baseline，不是 production simulator |
-| L3 | CUDA-Q `nvidia` target / cuStateVec | GPU 加速量子模擬後端 |
-| L4 | IBM Quantum QPU | 真實硬體語義比較，不比較 runtime |
+| L2 | CuPy naive GPU statevector | 教學用 GPU baseline |
+| L3 | CUDA-Q `nvidia` target / cuStateVec | GPU 加速量子模擬 |
+| L4 | IBM Quantum QPU | 真實硬體語意比較 |
 
-測量方法：
-
-- `--verify-target` 記錄實際 device 與 backend target。
-- GPU timing 包含 explicit synchronization，避免低估 async kernel 時間。
-- 排除 warmup，回報重複測量的 median。
-- 結果以 CSV 輸出：`backend, device, target, precision, qubits, depth, runtime_s, expectation`。
-- 已處理 Qiskit Pauli endianness，確保 CPU、naive GPU、CUDA-Q 都量測同一個 qubit-0 observable。
-
-WSL2 + NVIDIA RTX 2060 實測：
+WSL2 + NVIDIA RTX 2060 量測：
 
 | Depth | CPU | naive GPU | CUDA-Q/cuStateVec | CPU / CUDA-Q |
 |---:|---:|---:|---:|---:|
@@ -133,18 +112,18 @@ WSL2 + NVIDIA RTX 2060 實測：
 
 ![Full stack benchmark](quantum_vqe/outputs/stack_benchmark.png)
 
-12 個共同測點的數值交叉驗證：
+12 個共同量測點的數值交叉檢查：
 
 | 比較 | 最大 `<Z0>` 差異 |
 |---|---:|
 | CPU vs naive GPU | `4.6e-14` |
 | CPU vs CUDA-Q | `3.8e-7` |
 
-IBM Quantum 另行處理，因為 queue time 與含雜訊的 QPU execution 不應直接與 simulator runtime 比較。
+IBM Quantum 另外處理，因為 queue time 與 noisy QPU execution 不能直接和 simulator runtime 比較。
 
 ## Resource-Aware Router
 
-專案新增了一個面向變分量子工作流的自適應執行路由器。它會讀取 benchmark CSV，擬合簡單 runtime model，估算 statevector memory，並在明確條件下建議執行後端。
+`quantum_router.py` 會讀取 benchmark CSV，建立簡單 runtime model，估計 statevector memory，並在明確限制下建議執行後端。
 
 ```powershell
 python quantum_vqe/quantum_router.py --qubits 8 --depth 1 --accuracy exact --time-budget 1
@@ -154,18 +133,19 @@ python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware -
 
 | 模式 | 行為 |
 |---|---|
-| `exact` | 只選 CPU / CUDA-Q 這類 noiseless local simulators。 |
-| `estimate` | 選最快可行的本地後端；只有明確允許時才會建議 IBM。 |
-| `hardware` | 只有在要求 real-QPU semantics 且提供 `--allow-ibm` 時才選 IBM。 |
+| `exact` | 只選擇 CPU / CUDA-Q 等 noiseless local simulators。 |
+| `estimate` | 選擇最快的可行本機後端，只有在明確允許時才可能建議 IBM。 |
+| `hardware` | 只有在要求 real-QPU semantics 且提供 `--allow-ibm` 時才選擇 IBM。 |
 
-這是一個 resource-aware execution policy prototype，不是通用量子排程器。IBM 被刻意 gate 起來，因為 QPU 結果含雜訊且受 queue time 影響。
+這是一個 resource-aware execution policy prototype，不是通用量子排程器。IBM 被刻意設為 gated backend，因為 QPU 結果 noisy、queue-limited，且精度語意不同。
 
-## 複現方式
+## 重現結果
 
-本地 CPU：
+本機 CPU：
 
 ```powershell
 python demo.py
+python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 python quantum_vqe/scale_experiment.py
 python quantum_vqe/quantum_stack_benchmark.py --cpu --verify-target
 python quantum_vqe/quantum_stack_benchmark.py --plot --depths 1,3
@@ -189,14 +169,48 @@ python quantum_vqe/run_ibm_vqe.py --backend ibm_kingston --maxiter 12
 python quantum_vqe/run_ibm_vqe_batched.py --backend ibm_kingston --rounds 20 --session-max-time 2h
 ```
 
-需要在 `.env` 或環境變數設定 `QISKIT_IBM_TOKEN`。請勿提交真實 token。
+IBM workflow 需要在 `.env` 或環境變數設定 `QISKIT_IBM_TOKEN`。不要提交真實 token。
 
-## 限制與注意事項
+## 專案結構
 
-- 本地 benchmark 數字會受硬體與系統負載影響。
-- naive GPU simulator 是刻意簡化的 baseline，只用於教育性比較。
-- CUDA-Q/cuStateVec 仍屬 classical simulation，不是真實量子硬體。
-- IBM Quantum 結果反映含雜訊的硬體執行，不應直接與 simulator runtime 比較。
+```text
+Quant_DEV/
++-- README.md
++-- README.zh-TW.md
++-- requirements.txt
++-- requirements-cudaq.txt
++-- demo.py
++-- examples/
++-- quantum_vqe/
+|   +-- h2_hamiltonian.py
+|   +-- run_qiskit.py
+|   +-- run_pennylane.py
+|   +-- run_cudaq.py
+|   +-- run_ibm_cloud.py
+|   +-- run_ibm_vqe.py
+|   +-- run_ibm_vqe_batched.py
+|   +-- scale_experiment.py
+|   +-- quantum_env_check.py
+|   +-- quantum_stack_benchmark.py
+|   +-- quantum_router.py
+|   +-- plot_comparison.py
+|   +-- outputs/
++-- src/quant_dev/
++-- docs/
+```
+
+## 限制
+
+- 本機 benchmark 數字會受硬體、驅動與系統負載影響。
+- naive GPU simulator 是刻意簡化的教育 baseline，不是 production simulator。
+- CUDA-Q/cuStateVec 仍然是 classical simulation，不是真實量子硬體。
+- IBM Quantum 結果反映 noisy hardware execution，不應直接與 local simulator runtime 比較。
 - 固定參數 IBM 結果不是 VQE 收斂結果。
-- IBM hardware-in-the-loop VQE 是小型 noisy run，不應解讀為完整收斂的 chemistry 計算。
-- 若要讓硬體 VQE 更接近「一次跑完」，請優先使用 `run_ibm_vqe_batched.py`。它使用 Runtime Session，並在每一輪把多個候選參數打包成同一個 Estimator job。
+- hardware-in-the-loop VQE 是小型 noisy run，不應解讀為完整收斂的化學計算。
+
+## References
+
+- [Qiskit Learning](https://learning.quantum.ibm.com/)
+- [PennyLane Documentation](https://docs.pennylane.ai/)
+- [CUDA-Q Documentation](https://docs.nvidia.com/cuda-quantum/latest/)
+- [IBM Quantum Platform](https://quantum.ibm.com/)
