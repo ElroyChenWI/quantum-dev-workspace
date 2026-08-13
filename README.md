@@ -4,9 +4,10 @@
 
 A reproducible quantum software workspace for developing and comparing quantum algorithms across local simulators, GPU-accelerated simulators, CUDA-Q, and IBM Quantum Runtime.
 
-The repository focuses on two complementary tracks:
+The repository focuses on three complementary tracks:
 
 - **Algorithm track:** an H2 variational quantum eigensolver (VQE) implemented with Qiskit, PennyLane, and CUDA-Q, using a shared Hamiltonian and ansatz definition.
+- **Workload abstraction track:** a small expectation-value primitive that can host multiple NISQ workloads. H2 VQE and QAOA MaxCut are provided as reference workloads.
 - **Backend track:** a hardware-efficient ansatz (HEA) benchmark that evaluates the same circuit across CPU simulation, naive GPU simulation, CUDA-Q/cuStateVec acceleration, and IBM Quantum as a real-QPU execution target.
 
 The intent is not to claim practical quantum advantage. The project documents a backend-agnostic development workflow: validate locally, compare simulator implementations, use GPU acceleration where appropriate, and submit selected circuits to real quantum hardware for noisy execution behavior.
@@ -16,6 +17,7 @@ The intent is not to claim practical quantum advantage. The project documents a 
 | Area | Evidence |
 |---|---|
 | Cross-framework VQE | Qiskit, PennyLane, and CUDA-Q converge on the same H2 ground-state reference, `-1.857275 Ha`. |
+| Generic expectation workload | QAOA MaxCut runs through the same expectation primitive and reaches the exact cut value `4.000000` on a 4-node square graph at `p=2`. |
 | Real-hardware execution | IBM Quantum Runtime was used for both a fixed-parameter Estimator check and a small hardware-in-the-loop VQE trajectory on `ibm_kingston`, a 156-qubit IBM backend. |
 | Simulator scaling | CPU statevector experiments show the exponential cost of increasing qubit count. |
 | Backend benchmark | At `n=24`, `depth=3`, CUDA-Q/cuStateVec completed one expectation evaluation in `0.19 s`, compared with `72.8 s` on CPU simulation in this local measurement. |
@@ -43,6 +45,24 @@ python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 This writes `quantum_vqe/outputs/cloud_profile.json` and `quantum_vqe/outputs/cloud_profile.md`, including IBM account availability, usage data when exposed by the Runtime client, backend operational status, and queue depth. Account identifiers and tokens are not written.
 
 The router reads both profiles by default. This makes routing local- and account-aware: CPU/GPU availability comes from `env_profile.json`, while IBM eligibility comes from `cloud_profile.json`.
+
+## Workload Scope
+
+The current engine scope is expectation-based NISQ workloads. The execution primitive is:
+
+```text
+circuit(params) + observable -> expectation value
+```
+
+| Workload class | Examples | Current engine fit | Required extension |
+|---|---|---|---|
+| Expectation-based variational workloads | VQE, QAOA, VQC/QML, Hamiltonian simulation observables | Native fit | Provide workload-specific circuit, observable, parameters, and objective adapter. |
+| Shot-based sampling workloads | Grover-style demos, random circuit sampling, kernel estimation | Small extension | Add a sampling primitive that returns counts or probability distributions. |
+| QFT / phase-estimation workloads | QFT demos, amplitude estimation, phase estimation, Shor-style educational circuits | Medium extension | Add QFT/controlled-unitary builders and sampling-based post-processing. |
+| Dynamic-circuit workloads | Mid-circuit measurement, feed-forward circuits, selected error-correction demos | Larger extension | Add backend capability checks and executor support for conditional operations. |
+| Hardware-constrained workloads | Layout-sensitive circuits, deep entangling circuits, topology-aware experiments | Backend-policy extension | Add coupling-map awareness, transpilation constraints, and hardware-specific validation. |
+
+This repository does not claim universal quantum algorithm support. The current implementation targets expectation workloads while keeping the router and profiling layers extensible for sampling and dynamic-circuit primitives.
 
 ## Quick Start
 
@@ -72,6 +92,22 @@ The VQE implementation uses a shared 2-qubit H2 Hamiltonian, a shared 4-paramete
 | CUDA-Q | WSL2 + NVIDIA RTX 2060 | `-1.857275 Ha` | GPU target, error about `2e-7 Ha` |
 
 ![VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
+
+## QAOA MaxCut
+
+QAOA is included as a second reference workload to demonstrate that the execution layer is not specific to molecular VQE. The workload provides a QAOA circuit, a MaxCut cost observable, trainable parameters, and a maximize objective.
+
+```powershell
+python quantum_vqe/run_qaoa_maxcut.py --graph square --p 2 --maxiter 120
+```
+
+Recorded local result:
+
+| Graph | QAOA depth | Exact MaxCut | Best expected cut | Approximation ratio |
+|---|---:|---:|---:|---:|
+| 4-node square | `p=2` | `4` | `4.000000` | `1.000000` |
+
+![QAOA MaxCut convergence](quantum_vqe/outputs/qaoa_maxcut_convergence.png)
 
 ### IBM Quantum Fixed-Parameter Check
 
@@ -197,6 +233,7 @@ Local CPU workflows:
 
 ```powershell
 python demo.py
+python quantum_vqe/run_qaoa_maxcut.py --graph square --p 2 --maxiter 120
 python quantum_vqe/scale_experiment.py
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
@@ -239,6 +276,7 @@ Quant_DEV/
 |   +-- run_qiskit.py
 |   +-- run_pennylane.py
 |   +-- run_cudaq.py
+|   +-- run_qaoa_maxcut.py
 |   +-- run_ibm_cloud.py
 |   +-- run_ibm_vqe.py
 |   +-- run_ibm_vqe_batched.py
@@ -250,6 +288,10 @@ Quant_DEV/
 |   +-- plot_comparison.py
 |   +-- outputs/
 +-- src/quant_dev/
+|   +-- workloads.py
+|   +-- executors.py
+|   +-- qaoa.py
+|   +-- router.py
 +-- docs/
 ```
 

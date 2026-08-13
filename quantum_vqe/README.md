@@ -5,6 +5,7 @@ This directory contains the main algorithm and backend-comparison experiments fo
 It has two purposes:
 
 - Implement the same H2 VQE problem across Qiskit, PennyLane, and CUDA-Q.
+- Provide a second expectation-based workload with QAOA MaxCut.
 - Benchmark the same hardware-efficient ansatz across CPU simulation, naive GPU simulation, CUDA-Q/cuStateVec, and IBM Quantum as a real-QPU target.
 
 ## Files
@@ -15,6 +16,7 @@ quantum_vqe/
 +-- run_qiskit.py               # Qiskit VQE
 +-- run_pennylane.py            # PennyLane VQE
 +-- run_cudaq.py                # CUDA-Q VQE, requires WSL2/Linux/Docker
++-- run_qaoa_maxcut.py          # QAOA MaxCut reference workload
 +-- run_ibm_cloud.py            # IBM Quantum Runtime Estimator workflow
 +-- run_ibm_vqe.py              # Hardware-in-the-loop IBM VQE
 +-- run_ibm_vqe_batched.py      # Batched/session IBM VQE workflow
@@ -49,6 +51,20 @@ python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 
 This writes `quantum_vqe/outputs/cloud_profile.json` and `quantum_vqe/outputs/cloud_profile.md`. The router reads both local and cloud profiles by default.
 
+## Generic Expectation Workloads
+
+The shared execution primitive is:
+
+```text
+circuit(params) + observable -> expectation value
+```
+
+The reference implementation lives under `src/quant_dev/`:
+
+- `workloads.py`: backend-neutral `ExpectationWorkload` specification.
+- `executors.py`: Qiskit statevector expectation executor.
+- `qaoa.py`: QAOA MaxCut workload builder and exact small-graph checker.
+
 ## H2 VQE
 
 The H2 experiment uses a shared 2-qubit Hamiltonian, a 4-parameter ansatz, and COBYLA optimization. The goal is to keep the problem definition fixed while changing the execution framework.
@@ -77,6 +93,22 @@ python run_cudaq.py
 ```
 
 ![VQE convergence comparison](outputs/vqe_comparison.png)
+
+## QAOA MaxCut
+
+Run the second reference workload:
+
+```powershell
+python quantum_vqe/run_qaoa_maxcut.py --graph square --p 2 --maxiter 120
+```
+
+Recorded local result:
+
+| Graph | QAOA depth | Exact MaxCut | Best expected cut | Approximation ratio |
+|---|---:|---:|---:|---:|
+| 4-node square | `p=2` | `4` | `4.000000` | `1.000000` |
+
+![QAOA MaxCut convergence](outputs/qaoa_maxcut_convergence.png)
 
 ## IBM Quantum Runtime
 

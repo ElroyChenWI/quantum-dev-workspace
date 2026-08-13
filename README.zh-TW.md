@@ -11,14 +11,15 @@
 | 主題 | 證據 |
 |---|---|
 | 跨框架 VQE | Qiskit、PennyLane、CUDA-Q 使用同一個 H2 Hamiltonian 與 ansatz，收斂到 `-1.857275 Ha`。 |
+| 泛用 expectation workload | QAOA MaxCut 透過同一個 expectation primitive 執行，在 4-node square graph、`p=2` 時達到 exact cut value `4.000000`。 |
 | 真實硬體執行 | IBM Quantum Runtime 已用於固定參數 Estimator 檢查，以及 `ibm_kingston` 上的小型 hardware-in-the-loop VQE trajectory。 |
 | 模擬器擴展性 | CPU statevector 實驗顯示 qubit 增加時的指數成本。 |
 | 後端 benchmark | 在本機量測中，`n=24`、`depth=3` 時 CUDA-Q/cuStateVec 完成一次 expectation evaluation 約 `0.19 s`，CPU 約 `72.8 s`。 |
-| 自適應路由 | Resource-aware router 會根據 benchmark CSV、記憶體估計、精度模式與時間限制，建議 CPU、CUDA-Q 或 IBM 執行語意。 |
+| 自適應路由 | Resource-aware router 會根據 benchmark CSV、local/cloud profile、記憶體估計、精度模式與時間限制，建議 CPU、CUDA-Q 或 IBM 執行語意。 |
 
 ## 環境自檢
 
-新機器 clone repo 後，建議先跑本機環境自檢。這個程序會記錄 Python 套件、GPU 工具、WSL 狀態，以及小型 CPU/CUDA-Q smoke benchmark。
+新機器 clone repo 後，建議先跑本機環境自檢：
 
 ```powershell
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
@@ -38,6 +39,24 @@ python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 這會輸出 `quantum_vqe/outputs/cloud_profile.json` 與 `quantum_vqe/outputs/cloud_profile.md`，記錄 IBM 帳號是否可用、Runtime client 可取得的 usage/quota 資訊、backend operational 狀態與 pending jobs。profile 不會寫入 token 或帳號識別碼。
 
 router 預設會讀取這兩份 profile：`env_profile.json` 決定 CPU/GPU 本機能力，`cloud_profile.json` 決定 IBM 是否可被推薦。
+
+## Workload 範圍
+
+目前範圍定位為 expectation-based NISQ workloads。核心 primitive 是：
+
+```text
+circuit(params) + observable -> expectation value
+```
+
+| Workload 類別 | 例子 | 目前引擎適配度 | 需要擴充 |
+|---|---|---|---|
+| Expectation-based variational workloads | VQE、QAOA、VQC/QML、Hamiltonian simulation observables | 原生適配 | 提供 workload-specific circuit、observable、parameters、objective adapter。 |
+| Shot-based sampling workloads | Grover-style demos、random circuit sampling、kernel estimation | 小幅擴充 | 新增 sampling primitive，回傳 counts 或 probability distributions。 |
+| QFT / phase-estimation workloads | QFT demos、amplitude estimation、phase estimation、Shor-style educational circuits | 中度擴充 | 新增 QFT/controlled-unitary builders 與 sampling-based post-processing。 |
+| Dynamic-circuit workloads | Mid-circuit measurement、feed-forward circuits、部分 error-correction demos | 較大擴充 | 新增 backend capability checks 與 conditional operations executor。 |
+| Hardware-constrained workloads | Layout-sensitive circuits、deep entangling circuits、topology-aware experiments | 後端策略擴充 | 新增 coupling-map awareness、transpilation constraints 與 hardware-specific validation。 |
+
+這個 repo 不宣稱支援所有量子演算法。目前實作聚焦在 expectation workloads，同時保留 router 與 profiling layers，讓後續 sampling 或 dynamic-circuit primitive 可以自然擴充。
 
 ## 快速開始
 
@@ -65,6 +84,20 @@ H2 VQE 使用共用的 2-qubit Hamiltonian、4 參數 ansatz 與 COBYLA optimize
 | CUDA-Q | WSL2 + NVIDIA RTX 2060 | `-1.857275 Ha` | GPU target，誤差約 `2e-7 Ha` |
 
 ![VQE convergence comparison](quantum_vqe/outputs/vqe_comparison.png)
+
+## QAOA MaxCut
+
+QAOA 是第二個 reference workload，用來證明 execution layer 不是只服務分子 VQE。這個 workload 提供 QAOA circuit、MaxCut cost observable、trainable parameters，以及 maximize objective。
+
+```powershell
+python quantum_vqe/run_qaoa_maxcut.py --graph square --p 2 --maxiter 120
+```
+
+| Graph | QAOA depth | Exact MaxCut | Best expected cut | Approximation ratio |
+|---|---:|---:|---:|---:|
+| 4-node square | `p=2` | `4` | `4.000000` | `1.000000` |
+
+![QAOA MaxCut convergence](quantum_vqe/outputs/qaoa_maxcut_convergence.png)
 
 ## IBM Quantum
 
@@ -114,26 +147,17 @@ WSL2 + NVIDIA RTX 2060 量測：
 
 ![Full stack benchmark](quantum_vqe/outputs/stack_benchmark.png)
 
-12 個共同量測點的數值交叉檢查：
-
-| 比較 | 最大 `<Z0>` 差異 |
-|---|---:|
-| CPU vs naive GPU | `4.6e-14` |
-| CPU vs CUDA-Q | `3.8e-7` |
-
 IBM Quantum 另外處理，因為 queue time 與 noisy QPU execution 不能直接和 simulator runtime 比較。
 
 ## Resource-Aware Router
 
-`quantum_router.py` 會讀取 benchmark CSV，建立簡單 runtime model，估計 statevector memory，並在明確限制下建議執行後端。
+`quantum_router.py` 會讀取 benchmark CSV、`env_profile.json`、`cloud_profile.json`，建立簡單 runtime model，估計 statevector memory，並在明確限制下建議執行後端。
 
 ```powershell
 python quantum_vqe/quantum_router.py --qubits 8 --depth 1 --accuracy exact --time-budget 1
 python quantum_vqe/quantum_router.py --qubits 24 --depth 3 --accuracy exact --time-budget 10
 python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware --allow-ibm
 ```
-
-router 預設也會讀取 `quantum_vqe/outputs/env_profile.json` 與 `quantum_vqe/outputs/cloud_profile.json`。本機 profile 控制 CPU/GPU availability 與記憶體預算；cloud profile 控制 IBM availability、usage limit 狀態與 backend operational 狀態。
 
 | 模式 | 行為 |
 |---|---|
@@ -149,6 +173,7 @@ router 預設也會讀取 `quantum_vqe/outputs/env_profile.json` 與 `quantum_vq
 
 ```powershell
 python demo.py
+python quantum_vqe/run_qaoa_maxcut.py --graph square --p 2 --maxiter 120
 python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 python quantum_vqe/scale_experiment.py
@@ -191,6 +216,7 @@ Quant_DEV/
 |   +-- run_qiskit.py
 |   +-- run_pennylane.py
 |   +-- run_cudaq.py
+|   +-- run_qaoa_maxcut.py
 |   +-- run_ibm_cloud.py
 |   +-- run_ibm_vqe.py
 |   +-- run_ibm_vqe_batched.py
@@ -202,6 +228,10 @@ Quant_DEV/
 |   +-- plot_comparison.py
 |   +-- outputs/
 +-- src/quant_dev/
+|   +-- workloads.py
+|   +-- executors.py
+|   +-- qaoa.py
+|   +-- router.py
 +-- docs/
 ```
 
@@ -213,6 +243,7 @@ Quant_DEV/
 - IBM Quantum 結果反映 noisy hardware execution，不應直接與 local simulator runtime 比較。
 - 固定參數 IBM 結果不是 VQE 收斂結果。
 - hardware-in-the-loop VQE 是小型 noisy run，不應解讀為完整收斂的化學計算。
+- 目前泛用層支援 expectation workloads；sampling、QFT、dynamic circuits 屬於後續擴充範圍。
 
 ## References
 

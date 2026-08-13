@@ -1,6 +1,13 @@
-"""quant_dev — 量子開發可重用程式碼套件。
+"""Utilities for resource-aware quantum workload execution."""
 
-提供跨筆記本共享的輔助函式，例如建立常用電路、繪製機率分布等。
-"""
+from .executors import ExpectationResult, objective_value, run_qiskit_expectation
+from .workloads import ExpectationWorkload
+
+__all__ = [
+    "ExpectationResult",
+    "ExpectationWorkload",
+    "objective_value",
+    "run_qiskit_expectation",
+]
 
 __version__ = "0.1.0"
