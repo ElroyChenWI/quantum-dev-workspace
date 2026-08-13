@@ -121,6 +121,7 @@ This directly fits VQE, QAOA, VQC/QML-style objectives, and many Hamiltonian sim
 
 - [Detailed technical README](docs/DETAILED_README.md)
 - [Traditional Chinese README](README.zh-TW.md)
+- [GitHub repository metadata](docs/GITHUB_METADATA.md)
 - [CUDA-Q setup](docs/CUDA-Q_SETUP.md)
 - [IBM cloud audit](docs/IBM_CLOUD_AUDIT.md)
 
