@@ -19,9 +19,6 @@ This repo is **not an environment test — it is a complete, verifiable quantum 
 | 3 | 實證模擬的「指數牆」，量化為何必須上雲端 / 真硬體<br>Empirically demonstrated the exponential wall, quantifying why cloud/hardware is necessary | [規模實驗](#規模實驗指數牆) |
 | 4 | 四層後端平台 Benchmark（技術審查級測量方法），n=24/depth=3 時 CUDA-Q 比 CPU **快 ~389×**<br>4-layer backend benchmark (technical-review measurement), CUDA-Q **~389× faster** than CPU at n=24/depth=3 | [平台堆疊 Benchmark](#平台堆疊-benchmark四層) |
 
-這四張牌合起來：**「我會建環境、我會寫演算法、我會量性能、我真的接過真硬體。」**
-Together: **“I can build the environment, I can write the algorithm, I can measure performance, and I have actually touched real hardware.”**
-
 ## 一鍵體驗 / One-Command Demo
 
 ```powershell
