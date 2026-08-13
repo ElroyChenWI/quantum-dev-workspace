@@ -17,7 +17,7 @@ This repo is **not an environment test — it is a complete, verifiable quantum 
 | 1 | 同一物理問題跨 4 引擎執行，全收斂到精確基態能量 **-1.857275 Ha**（誤差 < 1e-13）<br>Same problem across 4 engines, all converge to **-1.857275 Ha** (<1e-13 error) | [VQE 專案](#vqe-跨框架專案主角-flagship-one-problem-three-frameworks) |
 | 2 | 真實 **156-qubit** 量子處理器實測（IBM `ibm_kingston`），量化硬體雜訊 ~0.04 Ha<br>Real 156-qubit QPU (IBM `ibm_kingston`), hardware noise quantified ~0.04 Ha | [真硬體驗證](#ibm-quantum-真硬體單點驗證) |
 | 3 | 實證模擬的「指數牆」，量化為何必須上雲端 / 真硬體<br>Empirically demonstrated the exponential wall, quantifying why cloud/hardware is necessary | [規模實驗](#規模實驗指數牆) |
-| 4 | 四層後端平台 Benchmark（技術審查級測量方法），n=24/depth=3 時 CUDA-Q 比 CPU **快 ~480×**<br>4-layer backend benchmark (technical-review measurement), CUDA-Q **~480× faster** than CPU at n=24/depth=3 | [平台堆疊 Benchmark](#平台堆疊-benchmark四層) |
+| 4 | 四層後端平台 Benchmark（技術審查級測量方法），n=24/depth=3 時 CUDA-Q 比 CPU **快 ~390×**<br>4-layer backend benchmark (technical-review measurement), CUDA-Q **~390× faster** than CPU at n=24/depth=3 | [平台堆疊 Benchmark](#平台堆疊-benchmark四層) |
 
 這四張牌合起來：**「我會建環境、我會寫演算法、我會量性能、我真的接過真硬體。」**
 Together: **“I can build the environment, I can write the algorithm, I can measure performance, and I have actually touched real hardware.”**
@@ -127,8 +127,8 @@ The **same HEA circuit** (RY+RZ all qubits → CNOT chain → measure ⟨Z₀⟩
 
 | Depth | CPU (L1) | naive GPU (L2) | CUDA-Q (L3) | CPU / CUDA-Q |
 |-------|----------|----------------|-------------|--------------|
-| 1 | 26.6 s | 1.47 s | **0.13 s** | ~200× |
-| 3 | 90.6 s | 4.36 s | **0.19 s** | **~480×** |
+| 1 | 35.3 s | 1.47 s | **0.13 s** | ~265× |
+| 3 | 72.8 s | 4.36 s | **0.19 s** | **~390×** |
 
 ![平台堆疊比較 / Stack benchmark](quantum_vqe/outputs/stack_benchmark.png)
 

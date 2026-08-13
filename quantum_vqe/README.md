@@ -118,15 +118,16 @@ python quantum_vqe/quantum_stack_benchmark.py --plot
 
 | N | CPU (d1) | naive GPU (d1) | CUDA-Q (d1) | CPU (d3) | naive GPU (d3) | CUDA-Q (d3) |
 |---|----------|----------------|-------------|----------|----------------|-------------|
-| 16 | 0.10 s | 0.06 s | 0.08 s | 0.17 s | 0.18 s | 0.08 s |
-| 20 | 1.7 s | 0.10 s | 0.08 s | 4.6 s | 0.28 s | 0.09 s |
-| 24 | **26.6 s** | 1.48 s | **0.11 s** | **90.6 s** | 4.38 s | **0.15 s** |
+| 16 | 0.13 s | 0.14 s | 0.14 s | 0.17 s | 0.20 s | 0.09 s |
+| 20 | 2.19 s | 0.14 s | 0.13 s | 4.10 s | 0.33 s | 0.09 s |
+| 24 | **35.3 s** | 1.47 s | **0.13 s** | **72.8 s** | 4.36 s | **0.19 s** |
 
 > 重點 1：**CPU / naive GPU / CUDA-Q 三層算出的 ⟨Z₀⟩ 完全一致**（同一 observable，三層交叉驗證正確；
 >         Qiskit Pauli 已處理 endianness，量到同一個 qubit 0）。
-> 重點 2：depth=3、n=24 時，CUDA-Q 比 CPU **快約 480 倍**，比 naive GPU 快約 25 倍。
+> 重點 2：depth=3、n=24 時，CUDA-Q 比 CPU **快約 390 倍**，比 naive GPU 快約 23 倍。
 > 重點 3：測量方法已專業化——`--verify-target` 印出真實 device/target、
 >         GPU 計時強制 sync（避免 async 造成時間偏低）、warmup + median、多深度掃描。
+> 註：CPU 計時為單機實測，受系統負載影響約 ±30%（n=24/depth=3 曾測得 90.6 s）。
 
 測量方法與輸出：
 

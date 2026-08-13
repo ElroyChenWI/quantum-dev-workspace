@@ -1,13 +1,13 @@
 backend,device,target,precision,qubits,depth,runtime_s,expectation
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,4,1,0.0023615999962203205,0.9523531383492114
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,8,1,0.0029801500058965757,0.6953850290231595
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,12,1,0.004610599993611686,0.5386185145815701
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,16,1,0.09913089999463409,0.5427766364881244
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,20,1,1.6554650999896694,0.49629533702680884
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,24,1,26.559561550006038,0.3709470549888005
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,4,3,0.005080199989606626,0.49955930552548633
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,8,3,0.004677349992562085,0.4602768980812144
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,12,3,0.00980820000404492,0.28162644997524705
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,16,3,0.17182569998840336,0.19811093092670967
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,20,3,4.645897599999444,0.1527350583075497
-cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,24,3,90.5624217500008,0.2060555257325387
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,4,1,0.0015135499997995794,0.9690115627982735
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,8,1,0.002963850012747571,0.9083692711604009
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,12,1,0.004917099984595552,0.8936455540727648
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,16,1,0.13372529999469407,0.9997048634726493
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,20,1,2.1940570999868214,0.99705023989109
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,24,1,35.28380059999472,0.98971574640236
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,4,3,0.006822899988037534,0.9884668427942181
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,8,3,0.004928050009766594,0.9109768200336608
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,12,3,0.009381149997352622,0.9127144463205944
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,16,3,0.16652245001750998,0.9143696423863208
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,20,3,4.103107750008348,0.7742235196861775
+cpu,cpu,StatevectorEstimator qiskit-2.5.1,complex128,24,3,72.82029530001455,0.9605466533294232
