@@ -15,6 +15,7 @@ It does not claim practical quantum advantage. The goal is a reproducible engine
 | Generic NISQ workload layer | `ExpectationWorkload`: `circuit(params) + observable -> expectation value`. |
 | Chemistry workload | H2 VQE across Qiskit, PennyLane, and CUDA-Q converges to `-1.857275 Ha`. |
 | Optimization workload | QAOA MaxCut reaches exact cut value `4.000000` on a 4-node square graph at `p=2`. |
+| ML workload | VQC on two moons, gradient-trained via PennyLane autograd, reaches `~95%` test accuracy. Same expectation primitive; framework parity vs Qiskit statevector at `<1e-15`. |
 | Local/cloud profiling | `env_profile.json` captures CPU/GPU capability; `cloud_profile.json` captures IBM availability, usage, backend status, and queue depth. |
 | Resource-aware routing | Router selects CPU/CUDA-Q/IBM based on exact/estimate/hardware semantics, memory, runtime budget, and QPU eligibility. |
 | Backend benchmark | CPU, naive GPU, CUDA-Q/cuStateVec, and IBM QPU are compared with clear simulator-vs-hardware semantics. |
@@ -66,6 +67,7 @@ python quantum_vqe/quantum_env_check.py --max-qubits 12 --depth 1
 python quantum_vqe/quantum_cloud_check.py --backend ibm_kingston
 python quantum_vqe/quantum_router.py --qubits 32 --depth 3 --accuracy hardware --allow-ibm
 python quantum_vqe/run_qaoa_maxcut.py --graph square --p 2 --maxiter 120
+python quantum_vqe/run_vqc.py --epochs 60
 python demo.py
 ```
 
@@ -76,6 +78,8 @@ python demo.py
 | H2 exact / Qiskit / PennyLane | `-1.857275 Ha` |
 | H2 CUDA-Q | `-1.857275 Ha` |
 | QAOA MaxCut, square graph, `p=2` | `4.000000 / 4` |
+| VQC two-moons (n=2, layers=3, 60 epochs) | train `94.2%`, test `95.0%` |
+| VQC framework parity, PennyLane vs Qiskit | `max_abs_diff < 1e-15` |
 | IBM fixed-parameter H2 Estimator on `ibm_kingston` | `-1.088185 Ha` |
 | IBM hardware-in-the-loop VQE best observed value | `-1.526744 Ha` |
 | CUDA-Q/cuStateVec speedup over CPU at `n=24`, `depth=3` | about `389x` in this local measurement |
@@ -89,6 +93,7 @@ python demo.py
 ```text
 quantum_vqe/
   run_qaoa_maxcut.py          # QAOA MaxCut reference workload
+  run_vqc.py                  # VQC binary classifier reference workload
   quantum_env_check.py        # Local CPU/GPU/CUDA-Q capability profile
   quantum_cloud_check.py      # IBM account/backend capability profile
   quantum_router.py           # Resource-aware routing CLI
@@ -102,6 +107,7 @@ src/quant_dev/
   workloads.py                # Generic ExpectationWorkload
   executors.py                # Shared expectation executor
   qaoa.py                     # QAOA MaxCut workload builder
+  vqc.py                      # VQC workload + moons dataset (per-sample expectation)
   router.py                   # Routing policy and runtime estimates
 ```
 
@@ -115,7 +121,7 @@ The platform currently supports workloads that can be expressed as:
 circuit(params) + observable -> expectation value
 ```
 
-This directly fits VQE, QAOA, VQC/QML-style objectives, and many Hamiltonian simulation observables. Sampling workloads, QFT/phase estimation, and dynamic circuits are treated as future primitives rather than current claims.
+This directly fits VQE, QAOA, VQC/QML-style objectives, and many Hamiltonian simulation observables. The VQC workload uses `VQCWorkload.as_expectation(x)` to freeze each sample into a plain `ExpectationWorkload`, so training goes through the same executors as VQE and QAOA rather than a parallel ML pipeline. Sampling workloads, QFT/phase estimation, and dynamic circuits are treated as future primitives rather than current claims.
 
 ## Documentation
 

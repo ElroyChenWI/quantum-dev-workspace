@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 from .workloads import ExpectationWorkload
+from .vqc import VQCWorkload
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,20 @@ def run_qiskit_expectation(workload: ExpectationWorkload, params: np.ndarray) ->
             "objective_direction": workload.objective_direction,
         },
     )
+
+
+def run_qiskit_vqc_expectation(
+    workload: VQCWorkload,
+    params: np.ndarray,
+    x: np.ndarray,
+) -> ExpectationResult:
+    """Evaluate a single VQC sample by freezing it into an ExpectationWorkload.
+
+    This is the concrete proof that VQC reuses the same expectation primitive
+    as VQE and QAOA: it goes through the exact same executor path.
+    """
+    frozen = workload.as_expectation(x)
+    return run_qiskit_expectation(frozen, params)
 
 
 def objective_value(workload: ExpectationWorkload, expectation: float) -> float:
